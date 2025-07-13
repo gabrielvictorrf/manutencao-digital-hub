@@ -4,6 +4,7 @@ import { MainSidebar } from "./MainSidebar";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,11 +13,10 @@ interface MainLayoutProps {
 
 export function MainLayout({ children, onLogout }: MainLayoutProps) {
   const { toast } = useToast();
-  const userEmail = localStorage.getItem("userEmail") || "usuário";
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    localStorage.removeItem("userEmail");
+    logout();
     onLogout();
     toast({
       title: "Logout realizado",
@@ -40,7 +40,8 @@ export function MainLayout({ children, onLogout }: MainLayoutProps) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <User className="h-4 w-4" />
-                {userEmail}
+                <span>{user?.name}</span>
+                <span className="text-xs opacity-70">({user?.role})</span>
               </div>
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />

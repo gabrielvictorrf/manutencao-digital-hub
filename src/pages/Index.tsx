@@ -2,21 +2,18 @@ import { useState, useEffect } from "react";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AppRouter } from "@/components/AppRouter";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    const authStatus = localStorage.getItem("isAuthenticated");
-    setIsAuthenticated(authStatus === "true");
-  }, []);
+  const { isAuthenticated } = useAuth();
+  const [shouldRerender, setShouldRerender] = useState(0);
 
   const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
+    setShouldRerender(prev => prev + 1);
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    setShouldRerender(prev => prev + 1);
   };
 
   if (!isAuthenticated) {

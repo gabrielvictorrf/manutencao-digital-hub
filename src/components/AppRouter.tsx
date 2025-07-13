@@ -2,6 +2,7 @@ import { useLocation } from "react-router-dom";
 import Dashboard from "@/pages/Dashboard";
 import Pessoal from "@/pages/Pessoal";
 import Relatorios from "@/pages/Relatorios";
+import Configuracoes from "@/pages/Configuracoes";
 
 export function AppRouter() {
   const location = useLocation();
@@ -43,12 +44,7 @@ export function AppRouter() {
         </div>
       );
     case "/configuracoes":
-      return (
-        <div className="space-y-6">
-          <h2 className="text-3xl font-bold tracking-tight">Configurações</h2>
-          <p className="text-muted-foreground">Em desenvolvimento...</p>
-        </div>
-      );
+      return <Configuracoes />;
     default:
       return <Dashboard />;
   }

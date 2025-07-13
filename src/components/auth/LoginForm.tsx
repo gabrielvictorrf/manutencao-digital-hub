@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface LoginFormProps {
   onLoginSuccess: () => void;
@@ -14,16 +15,15 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulação de autenticação - integrar com Supabase depois
-    setTimeout(() => {
-      if (email && password) {
-        localStorage.setItem("isAuthenticated", "true");
-        localStorage.setItem("userEmail", email);
+    try {
+      const success = await login(email, password);
+      if (success) {
         onLoginSuccess();
         toast({
           title: "Login realizado com sucesso!",
@@ -32,12 +32,19 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
       } else {
         toast({
           title: "Erro no login",
-          description: "Por favor, preencha todos os campos.",
+          description: "Email/usuário ou senha incorretos.",
           variant: "destructive",
         });
       }
+    } catch (error) {
+      toast({
+        title: "Erro no login",
+        description: "Ocorreu um erro inesperado.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -57,8 +64,8 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="seu@email.com"
+                type="text"
+                placeholder="usuário ou email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
