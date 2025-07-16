@@ -14,6 +14,7 @@ import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { saveTemposParada, loadTemposParada, loadOrdens } from '@/lib/storage';
 
 export interface TempoParada {
   id: string;
@@ -49,19 +50,29 @@ const motivosParada = [
   'Outro'
 ];
 
-// Simulando ordens de serviço disponíveis
-const ordensDisponiveis = [
-  { id: '1', numero: 'OS20240001', maquinaId: '1', maquinaNome: 'Torno CNC 001' },
-  { id: '2', numero: 'OS20240002', maquinaId: '2', maquinaNome: 'Fresadora Universal 002' },
-];
 
 export default function TemposParada() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
   const [temposParada, setTemposParada] = useState<TempoParada[]>([]);
+  const [ordensDisponiveis, setOrdensDisponiveis] = useState<{ id: string; numero: string; maquinaId: string; maquinaNome: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingTempo, setEditingTempo] = useState<TempoParada | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Carregar dados do localStorage ao montar o componente
+  useEffect(() => {
+    const temposCarregados = loadTemposParada();
+    const ordensCarregadas = loadOrdens();
+    
+    setTemposParada(temposCarregados);
+    setOrdensDisponiveis(ordensCarregadas.map(o => ({
+      id: o.id,
+      numero: o.numeroRastreio,
+      maquinaId: o.maquinaId,
+      maquinaNome: o.maquinaNome
+    })));
+  }, []);
 
   const [formData, setFormData] = useState({
     ordemServicoId: '',
@@ -156,7 +167,7 @@ export default function TemposParada() {
 
     if (editingTempo) {
       // Atualizar tempo existente
-      setTemposParada(prev => prev.map(tempo => 
+      const novosTempos = temposParada.map(tempo => 
         tempo.id === editingTempo.id 
           ? {
               ...tempo,
@@ -174,7 +185,10 @@ export default function TemposParada() {
               status,
             }
           : tempo
-      ));
+      );
+      
+      setTemposParada(novosTempos);
+      saveTemposParada(novosTempos);
       
       toast({
         title: "Sucesso",
@@ -200,7 +214,9 @@ export default function TemposParada() {
         criadoEm: new Date().toISOString(),
       };
 
-      setTemposParada(prev => [...prev, novoTempo]);
+      const novosTempos = [...temposParada, novoTempo];
+      setTemposParada(novosTempos);
+      saveTemposParada(novosTempos);
       
       toast({
         title: "Sucesso",
@@ -243,7 +259,7 @@ export default function TemposParada() {
     const agora = new Date();
     const duracao = calcularDuracao(new Date(tempo.dataInicio), agora);
     
-    setTemposParada(prev => prev.map(t => 
+    const novosTempos = temposParada.map(t => 
       t.id === tempo.id 
         ? {
             ...t,
@@ -252,7 +268,10 @@ export default function TemposParada() {
             status: 'finalizada' as const,
           }
         : t
-    ));
+    );
+    
+    setTemposParada(novosTempos);
+    saveTemposParada(novosTempos);
     
     toast({
       title: "Sucesso",

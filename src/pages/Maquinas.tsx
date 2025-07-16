@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Edit, Settings, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { saveMaquinas, loadMaquinas } from '@/lib/storage';
 
 export interface Maquina {
   id: string;
@@ -48,29 +49,16 @@ const tiposMaquina = [
 export default function Maquinas() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
-  const [maquinas, setMaquinas] = useState<Maquina[]>([
-    {
-      id: '1',
-      codigo: 'MAQ001',
-      nome: 'Torno CNC 001',
-      tipo: 'Torno CNC',
-      fabricante: 'Romi',
-      modelo: 'Galaxy 20',
-      anoFabricacao: 2020,
-      numeroSerie: 'RG20-2020-001',
-      localizacao: 'Setor A - Linha 1',
-      status: 'operacional',
-      criticidade: 'alta',
-      horasOperacao: 15420,
-      ultimaManutencao: '2024-01-15',
-      proximaManutencao: '2024-04-15',
-      criadoEm: new Date().toISOString(),
-      criadoPor: 'Sistema',
-    }
-  ]);
+  const [maquinas, setMaquinas] = useState<Maquina[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingMaquina, setEditingMaquina] = useState<Maquina | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Carregar dados do localStorage ao montar o componente
+  useEffect(() => {
+    const maquinasCarregadas = loadMaquinas();
+    setMaquinas(maquinasCarregadas);
+  }, []);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -119,7 +107,7 @@ export default function Maquinas() {
 
     if (editingMaquina) {
       // Atualizar máquina existente
-      setMaquinas(prev => prev.map(maquina => 
+      const novasMaquinas = maquinas.map(maquina => 
         maquina.id === editingMaquina.id 
           ? {
               ...maquina,
@@ -135,7 +123,10 @@ export default function Maquinas() {
               observacoes: formData.observacoes,
             }
           : maquina
-      ));
+      );
+      
+      setMaquinas(novasMaquinas);
+      saveMaquinas(novasMaquinas);
       
       toast({
         title: "Sucesso",
@@ -162,7 +153,9 @@ export default function Maquinas() {
         criadoPor: user?.name || '',
       };
 
-      setMaquinas(prev => [...prev, novaMaquina]);
+      const novasMaquinas = [...maquinas, novaMaquina];
+      setMaquinas(novasMaquinas);
+      saveMaquinas(novasMaquinas);
       
       toast({
         title: "Sucesso",

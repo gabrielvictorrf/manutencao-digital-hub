@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, Search, Edit, Eye } from 'lucide-react';
-import { format } from 'date-fns';
+import { CalendarIcon, Plus, Search, Edit, Eye, Clock } from 'lucide-react';
+import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { saveOrdens, loadOrdens, loadMaquinas, saveTemposParada, loadTemposParada } from '@/lib/storage';
+import { TempoParada } from '@/pages/TemposParada';
 
 export interface OrdemServico {
   id: string;
@@ -28,27 +30,35 @@ export interface OrdemServico {
   dataAbertura: string;
   dataInicio?: string;
   dataConclusao?: string;
-  tempoParada?: number; // em minutos
+  // Tempos detalhados para métricas
+  horaQuebra?: string; // Quando a máquina quebrou
+  horaInicioReparo?: string; // Quando o mecânico começou o reparo
+  horaFimReparo?: string; // Quando o reparo foi concluído
+  horaVoltaOperacao?: string; // Quando a máquina voltou a operar
+  tempoParadaTotal?: number; // em minutos (da quebra até voltar a operar)
+  tempoReparoEfetivo?: number; // em minutos (do início ao fim do reparo)
   observacoes?: string;
   criadoPor: string;
 }
 
-// Simulando máquinas disponíveis
-const maquinasDisponiveis = [
-  { id: '1', nome: 'Torno CNC 001' },
-  { id: '2', nome: 'Fresadora Universal 002' },
-  { id: '3', nome: 'Furadeira Radial 003' },
-  { id: '4', nome: 'Prensa Hidráulica 004' },
-  { id: '5', nome: 'Compressor 005' },
-];
 
 export default function OrdensServico() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
+  const [maquinasDisponiveis, setMaquinasDisponiveis] = useState<{ id: string; nome: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingOrdem, setEditingOrdem] = useState<OrdemServico | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Carregar dados do localStorage ao montar o componente
+  useEffect(() => {
+    const ordensCarregadas = loadOrdens();
+    const maquinasCarregadas = loadMaquinas();
+    
+    setOrdens(ordensCarregadas);
+    setMaquinasDisponiveis(maquinasCarregadas.map(m => ({ id: m.id, nome: m.nome })));
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -58,8 +68,45 @@ export default function OrdensServico() {
     prioridade: 'media' as 'baixa' | 'media' | 'alta' | 'critica',
     tecnicoResponsavel: '',
     dataInicio: null as Date | null,
+    horaQuebra: '',
+    horaInicioReparo: '',
+    horaFimReparo: '',
+    horaVoltaOperacao: '',
     observacoes: '',
   });
+
+  // Função para criar automaticamente o tempo de parada
+  const criarTempoParada = (ordem: OrdemServico) => {
+    if (!ordem.horaQuebra) return;
+
+    const temposExistentes = loadTemposParada();
+    
+    // Verificar se já existe um tempo de parada para esta ordem
+    const tempoExistente = temposExistentes.find(t => t.ordemServicoId === ordem.id);
+    if (tempoExistente) return; // Não criar duplicado
+
+    const novoTempo: TempoParada = {
+      id: `tp_${ordem.id}_${Date.now()}`,
+      ordemServicoId: ordem.id,
+      ordemServicoNumero: ordem.numeroRastreio,
+      maquinaId: ordem.maquinaId,
+      maquinaNome: ordem.maquinaNome,
+      dataInicio: ordem.horaQuebra,
+      dataFim: ordem.horaVoltaOperacao,
+      duracao: ordem.tempoParadaTotal || 0,
+      motivoParada: 'Manutenção Corretiva',
+      tipoParada: 'nao_programada',
+      impactoProducao: ordem.prioridade === 'critica' ? 'critico' : 
+                      ordem.prioridade === 'alta' ? 'alto' : 'medio',
+      responsavelRegistro: ordem.criadoPor,
+      observacoes: `Tempo de parada gerado automaticamente da OS ${ordem.numeroRastreio}. Reparo efetivo: ${ordem.tempoReparoEfetivo || 0} minutos.`,
+      status: ordem.horaVoltaOperacao ? 'finalizada' : 'em_andamento',
+      criadoEm: new Date().toISOString(),
+    };
+
+    const todosTempos = [...temposExistentes, novoTempo];
+    saveTemposParada(todosTempos);
+  };
 
   // Gerar número de rastreio único
   const gerarNumeroRastreio = () => {
@@ -76,10 +123,29 @@ export default function OrdensServico() {
       prioridade: 'media',
       tecnicoResponsavel: '',
       dataInicio: null,
+      horaQuebra: '',
+      horaInicioReparo: '',
+      horaFimReparo: '',
+      horaVoltaOperacao: '',
       observacoes: '',
     });
     setEditingOrdem(null);
     setShowForm(false);
+  };
+
+  // Função para calcular tempos automaticamente
+  const calcularTempos = () => {
+    if (!formData.horaQuebra) return { tempoParadaTotal: 0, tempoReparoEfetivo: 0 };
+
+    const quebra = new Date(formData.horaQuebra);
+    const volta = formData.horaVoltaOperacao ? new Date(formData.horaVoltaOperacao) : null;
+    const inicioReparo = formData.horaInicioReparo ? new Date(formData.horaInicioReparo) : null;
+    const fimReparo = formData.horaFimReparo ? new Date(formData.horaFimReparo) : null;
+
+    const tempoParadaTotal = volta ? differenceInMinutes(volta, quebra) : 0;
+    const tempoReparoEfetivo = (inicioReparo && fimReparo) ? differenceInMinutes(fimReparo, inicioReparo) : 0;
+
+    return { tempoParadaTotal, tempoReparoEfetivo };
   };
 
   const handleSave = () => {
@@ -93,24 +159,37 @@ export default function OrdensServico() {
     }
 
     const maquina = maquinasDisponiveis.find(m => m.id === formData.maquinaId);
+    const { tempoParadaTotal, tempoReparoEfetivo } = calcularTempos();
     
     if (editingOrdem) {
       // Atualizar ordem existente
-      setOrdens(prev => prev.map(ordem => 
-        ordem.id === editingOrdem.id 
-          ? {
-              ...ordem,
-              titulo: formData.titulo,
-              descricao: formData.descricao,
-              maquinaId: formData.maquinaId,
-              maquinaNome: maquina?.nome || '',
-              prioridade: formData.prioridade,
-              tecnicoResponsavel: formData.tecnicoResponsavel,
-              dataInicio: formData.dataInicio?.toISOString(),
-              observacoes: formData.observacoes,
-            }
-          : ordem
-      ));
+      const ordemAtualizada = {
+        ...editingOrdem,
+        titulo: formData.titulo,
+        descricao: formData.descricao,
+        maquinaId: formData.maquinaId,
+        maquinaNome: maquina?.nome || '',
+        prioridade: formData.prioridade,
+        tecnicoResponsavel: formData.tecnicoResponsavel,
+        dataInicio: formData.dataInicio?.toISOString(),
+        horaQuebra: formData.horaQuebra || undefined,
+        horaInicioReparo: formData.horaInicioReparo || undefined,
+        horaFimReparo: formData.horaFimReparo || undefined,
+        horaVoltaOperacao: formData.horaVoltaOperacao || undefined,
+        tempoParadaTotal,
+        tempoReparoEfetivo,
+        observacoes: formData.observacoes,
+      };
+
+      const novasOrdens = ordens.map(ordem => 
+        ordem.id === editingOrdem.id ? ordemAtualizada : ordem
+      );
+      
+      setOrdens(novasOrdens);
+      saveOrdens(novasOrdens);
+      
+      // Criar/atualizar tempo de parada
+      criarTempoParada(ordemAtualizada);
       
       toast({
         title: "Sucesso",
@@ -130,11 +209,22 @@ export default function OrdensServico() {
         tecnicoResponsavel: formData.tecnicoResponsavel,
         dataAbertura: new Date().toISOString(),
         dataInicio: formData.dataInicio?.toISOString(),
+        horaQuebra: formData.horaQuebra || undefined,
+        horaInicioReparo: formData.horaInicioReparo || undefined,
+        horaFimReparo: formData.horaFimReparo || undefined,
+        horaVoltaOperacao: formData.horaVoltaOperacao || undefined,
+        tempoParadaTotal,
+        tempoReparoEfetivo,
         observacoes: formData.observacoes,
         criadoPor: user?.name || '',
       };
 
-      setOrdens(prev => [...prev, novaOrdem]);
+      const novasOrdens = [...ordens, novaOrdem];
+      setOrdens(novasOrdens);
+      saveOrdens(novasOrdens);
+      
+      // Criar tempo de parada automaticamente
+      criarTempoParada(novaOrdem);
       
       toast({
         title: "Sucesso",
@@ -154,6 +244,10 @@ export default function OrdensServico() {
       prioridade: ordem.prioridade,
       tecnicoResponsavel: ordem.tecnicoResponsavel,
       dataInicio: ordem.dataInicio ? new Date(ordem.dataInicio) : null,
+      horaQuebra: ordem.horaQuebra || '',
+      horaInicioReparo: ordem.horaInicioReparo || '',
+      horaFimReparo: ordem.horaFimReparo || '',
+      horaVoltaOperacao: ordem.horaVoltaOperacao || '',
       observacoes: ordem.observacoes || '',
     });
     setShowForm(true);
@@ -316,6 +410,73 @@ export default function OrdensServico() {
               </div>
             </div>
 
+            {/* Seção de Tempos de Parada para Métricas */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Clock className="h-4 w-4" />
+                <Label className="text-base font-semibold">Tempos de Parada (Para Métricas MTTR/MTBF)</Label>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="horaQuebra">Hora da Quebra/Problema</Label>
+                  <Input
+                    id="horaQuebra"
+                    type="datetime-local"
+                    value={formData.horaQuebra}
+                    onChange={(e) => setFormData(prev => ({ ...prev, horaQuebra: e.target.value }))}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="horaInicioReparo">Hora Início do Reparo</Label>
+                  <Input
+                    id="horaInicioReparo"
+                    type="datetime-local"
+                    value={formData.horaInicioReparo}
+                    onChange={(e) => setFormData(prev => ({ ...prev, horaInicioReparo: e.target.value }))}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="horaFimReparo">Hora Fim do Reparo</Label>
+                  <Input
+                    id="horaFimReparo"
+                    type="datetime-local"
+                    value={formData.horaFimReparo}
+                    onChange={(e) => setFormData(prev => ({ ...prev, horaFimReparo: e.target.value }))}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="horaVoltaOperacao">Hora Volta à Operação</Label>
+                  <Input
+                    id="horaVoltaOperacao"
+                    type="datetime-local"
+                    value={formData.horaVoltaOperacao}
+                    onChange={(e) => setFormData(prev => ({ ...prev, horaVoltaOperacao: e.target.value }))}
+                  />
+                </div>
+              </div>
+              
+              {/* Exibir tempos calculados */}
+              {formData.horaQuebra && (
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium mb-2">Tempos Calculados:</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Tempo Parada Total:</span>{' '}
+                      {calcularTempos().tempoParadaTotal > 0 ? `${Math.floor(calcularTempos().tempoParadaTotal / 60)}h ${calcularTempos().tempoParadaTotal % 60}min` : '--'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Tempo Reparo Efetivo:</span>{' '}
+                      {calcularTempos().tempoReparoEfetivo > 0 ? `${Math.floor(calcularTempos().tempoReparoEfetivo / 60)}h ${calcularTempos().tempoReparoEfetivo % 60}min` : '--'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <Label htmlFor="observacoes">Observações</Label>
               <Textarea
@@ -371,11 +532,30 @@ export default function OrdensServico() {
                     <div>
                       <span className="font-medium">Abertura:</span> {format(new Date(ordem.dataAbertura), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                     </div>
-                    <div>
-                      <span className="font-medium">Criado por:</span> {ordem.criadoPor}
-                    </div>
-                  </div>
-                </div>
+                     <div>
+                       <span className="font-medium">Criado por:</span> {ordem.criadoPor}
+                     </div>
+                   </div>
+                   
+                   {/* Mostrar tempos de parada se existirem */}
+                   {(ordem.horaQuebra || ordem.tempoParadaTotal) && (
+                     <div className="mt-3 p-3 bg-muted/30 rounded-lg">
+                       <p className="text-sm font-medium mb-2">Tempos de Parada:</p>
+                       <div className="grid grid-cols-2 gap-2 text-sm">
+                         {ordem.tempoParadaTotal && (
+                           <div>
+                             <span className="font-medium">Parada Total:</span> {Math.floor(ordem.tempoParadaTotal / 60)}h {ordem.tempoParadaTotal % 60}min
+                           </div>
+                         )}
+                         {ordem.tempoReparoEfetivo && (
+                           <div>
+                             <span className="font-medium">Reparo Efetivo:</span> {Math.floor(ordem.tempoReparoEfetivo / 60)}h {ordem.tempoReparoEfetivo % 60}min
+                           </div>
+                         )}
+                       </div>
+                     </div>
+                   )}
+                 </div>
                 
                 {canEdit && (
                   <Button
