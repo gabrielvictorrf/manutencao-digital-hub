@@ -3,6 +3,9 @@ import Dashboard from "@/pages/Dashboard";
 import Pessoal from "@/pages/Pessoal";
 import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
+import OrdensServico from "@/pages/OrdensServico";
+import Maquinas from "@/pages/Maquinas";
+import TemposParada from "@/pages/TemposParada";
 
 export function AppRouter() {
   const location = useLocation();
@@ -16,26 +19,11 @@ export function AppRouter() {
     case "/relatorios":
       return <Relatorios />;
     case "/ordens":
-      return (
-        <div className="space-y-6">
-          <h2 className="text-3xl font-bold tracking-tight">Ordens de Serviço</h2>
-          <p className="text-muted-foreground">Em desenvolvimento...</p>
-        </div>
-      );
+      return <OrdensServico />;
     case "/maquinas":
-      return (
-        <div className="space-y-6">
-          <h2 className="text-3xl font-bold tracking-tight">Gestão de Máquinas</h2>
-          <p className="text-muted-foreground">Em desenvolvimento...</p>
-        </div>
-      );
+      return <Maquinas />;
     case "/paradas":
-      return (
-        <div className="space-y-6">
-          <h2 className="text-3xl font-bold tracking-tight">Tempos de Parada</h2>
-          <p className="text-muted-foreground">Em desenvolvimento...</p>
-        </div>
-      );
+      return <TemposParada />;
     case "/indicadores":
       return (
         <div className="space-y-6">
