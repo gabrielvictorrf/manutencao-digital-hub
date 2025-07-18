@@ -40,11 +40,6 @@ const menuItems = [
     icon: ClipboardList,
   },
   {
-    title: "Backlog de Ordens",
-    url: "/backlog",
-    icon: Kanban,
-  },
-  {
     title: "Máquinas",
     url: "/maquinas",
     icon: Wrench,
