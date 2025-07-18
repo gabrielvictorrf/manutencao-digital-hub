@@ -14,7 +14,7 @@ import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { saveOrdens, loadOrdens, loadMaquinas, saveTemposParada, loadTemposParada } from '@/lib/storage';
+import { saveOrdens, loadOrdens, loadMaquinas, saveTemposParada, loadTemposParada, loadRequisitantes, loadSetores } from '@/lib/storage';
 import { TempoParada } from '@/pages/TemposParada';
 
 export interface OrdemServico {
@@ -24,9 +24,14 @@ export interface OrdemServico {
   descricao: string;
   maquinaId: string;
   maquinaNome: string;
+  requisitanteId: string;
+  requisitanteNome: string;
+  setorId: string;
+  setorNome: string;
   prioridade: 'baixa' | 'media' | 'alta' | 'critica';
   status: 'aberta' | 'em_andamento' | 'concluida' | 'cancelada';
-  tecnicoResponsavel: string;
+  tecnicoResponsavelId: string;
+  tecnicoResponsavelNome: string;
   dataAbertura: string;
   dataInicio?: string;
   dataConclusao?: string;
@@ -47,6 +52,9 @@ export default function OrdensServico() {
   const { toast } = useToast();
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [maquinasDisponiveis, setMaquinasDisponiveis] = useState<{ id: string; nome: string }[]>([]);
+  const [requisitantesDisponiveis, setRequisitantesDisponiveis] = useState<{ id: string; nome: string; setor: string }[]>([]);
+  const [setoresDisponiveis, setSetoresDisponiveis] = useState<{ id: string; nome: string }[]>([]);
+  const [tecnicosDisponiveis, setTecnicosDisponiveis] = useState<{ id: string; nome: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingOrdem, setEditingOrdem] = useState<OrdemServico | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,9 +63,22 @@ export default function OrdensServico() {
   useEffect(() => {
     const ordensCarregadas = loadOrdens();
     const maquinasCarregadas = loadMaquinas();
+    const requisitantesCarregados = loadRequisitantes();
+    const setoresCarregados = loadSetores();
+    
+    // Simular base de técnicos vinda do Pessoal
+    const tecnicosBase = [
+      { id: '1', nome: 'João Silva' },
+      { id: '2', nome: 'Maria Santos' },
+      { id: '3', nome: 'Carlos Lima' },
+      { id: '4', nome: 'Ana Costa' },
+    ];
     
     setOrdens(ordensCarregadas);
     setMaquinasDisponiveis(maquinasCarregadas.map(m => ({ id: m.id, nome: m.nome })));
+    setRequisitantesDisponiveis(requisitantesCarregados.map(r => ({ id: r.id, nome: r.nome, setor: r.setor })));
+    setSetoresDisponiveis(setoresCarregados.map(s => ({ id: s.id, nome: s.nome })));
+    setTecnicosDisponiveis(tecnicosBase);
   }, []);
 
   // Form state
@@ -65,8 +86,10 @@ export default function OrdensServico() {
     titulo: '',
     descricao: '',
     maquinaId: '',
+    requisitanteId: '',
+    setorId: '',
     prioridade: 'media' as 'baixa' | 'media' | 'alta' | 'critica',
-    tecnicoResponsavel: '',
+    tecnicoResponsavelId: '',
     dataInicio: null as Date | null,
     horaQuebra: '',
     horaInicioReparo: '',
@@ -120,8 +143,10 @@ export default function OrdensServico() {
       titulo: '',
       descricao: '',
       maquinaId: '',
+      requisitanteId: '',
+      setorId: '',
       prioridade: 'media',
-      tecnicoResponsavel: '',
+      tecnicoResponsavelId: '',
       dataInicio: null,
       horaQuebra: '',
       horaInicioReparo: '',
@@ -149,7 +174,7 @@ export default function OrdensServico() {
   };
 
   const handleSave = () => {
-    if (!formData.titulo || !formData.descricao || !formData.maquinaId || !formData.tecnicoResponsavel) {
+    if (!formData.titulo || !formData.descricao || !formData.maquinaId || !formData.requisitanteId || !formData.setorId || !formData.tecnicoResponsavelId) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios",
@@ -159,6 +184,9 @@ export default function OrdensServico() {
     }
 
     const maquina = maquinasDisponiveis.find(m => m.id === formData.maquinaId);
+    const requisitante = requisitantesDisponiveis.find(r => r.id === formData.requisitanteId);
+    const setor = setoresDisponiveis.find(s => s.id === formData.setorId);
+    const tecnico = tecnicosDisponiveis.find(t => t.id === formData.tecnicoResponsavelId);
     const { tempoParadaTotal, tempoReparoEfetivo } = calcularTempos();
     
     if (editingOrdem) {
@@ -169,8 +197,13 @@ export default function OrdensServico() {
         descricao: formData.descricao,
         maquinaId: formData.maquinaId,
         maquinaNome: maquina?.nome || '',
+        requisitanteId: formData.requisitanteId,
+        requisitanteNome: requisitante?.nome || '',
+        setorId: formData.setorId,
+        setorNome: setor?.nome || '',
         prioridade: formData.prioridade,
-        tecnicoResponsavel: formData.tecnicoResponsavel,
+        tecnicoResponsavelId: formData.tecnicoResponsavelId,
+        tecnicoResponsavelNome: tecnico?.nome || '',
         dataInicio: formData.dataInicio?.toISOString(),
         horaQuebra: formData.horaQuebra || undefined,
         horaInicioReparo: formData.horaInicioReparo || undefined,
@@ -204,9 +237,14 @@ export default function OrdensServico() {
         descricao: formData.descricao,
         maquinaId: formData.maquinaId,
         maquinaNome: maquina?.nome || '',
+        requisitanteId: formData.requisitanteId,
+        requisitanteNome: requisitante?.nome || '',
+        setorId: formData.setorId,
+        setorNome: setor?.nome || '',
         prioridade: formData.prioridade,
         status: 'aberta',
-        tecnicoResponsavel: formData.tecnicoResponsavel,
+        tecnicoResponsavelId: formData.tecnicoResponsavelId,
+        tecnicoResponsavelNome: tecnico?.nome || '',
         dataAbertura: new Date().toISOString(),
         dataInicio: formData.dataInicio?.toISOString(),
         horaQuebra: formData.horaQuebra || undefined,
@@ -241,8 +279,10 @@ export default function OrdensServico() {
       titulo: ordem.titulo,
       descricao: ordem.descricao,
       maquinaId: ordem.maquinaId,
+      requisitanteId: ordem.requisitanteId || '',
+      setorId: ordem.setorId || '',
       prioridade: ordem.prioridade,
-      tecnicoResponsavel: ordem.tecnicoResponsavel,
+      tecnicoResponsavelId: ordem.tecnicoResponsavelId || '',
       dataInicio: ordem.dataInicio ? new Date(ordem.dataInicio) : null,
       horaQuebra: ordem.horaQuebra || '',
       horaInicioReparo: ordem.horaInicioReparo || '',
@@ -350,6 +390,41 @@ export default function OrdensServico() {
               />
             </div>
 
+            {/* Novos campos obrigatórios */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="requisitante">Requisitante *</Label>
+                <Select value={formData.requisitanteId} onValueChange={(value) => setFormData(prev => ({ ...prev, requisitanteId: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o requisitante" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {requisitantesDisponiveis.map(requisitante => (
+                      <SelectItem key={requisitante.id} value={requisitante.id}>
+                        {requisitante.nome} ({requisitante.setor})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="setor">Setor *</Label>
+                <Select value={formData.setorId} onValueChange={(value) => setFormData(prev => ({ ...prev, setorId: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o setor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {setoresDisponiveis.map(setor => (
+                      <SelectItem key={setor.id} value={setor.id}>
+                        {setor.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="prioridade">Prioridade</Label>
@@ -368,12 +443,18 @@ export default function OrdensServico() {
 
               <div>
                 <Label htmlFor="tecnico">Técnico Responsável *</Label>
-                <Input
-                  id="tecnico"
-                  value={formData.tecnicoResponsavel}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tecnicoResponsavel: e.target.value }))}
-                  placeholder="Nome do técnico responsável"
-                />
+                <Select value={formData.tecnicoResponsavelId} onValueChange={(value) => setFormData(prev => ({ ...prev, tecnicoResponsavelId: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o técnico" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tecnicosDisponiveis.map(tecnico => (
+                      <SelectItem key={tecnico.id} value={tecnico.id}>
+                        {tecnico.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -527,7 +608,13 @@ export default function OrdensServico() {
                       <span className="font-medium">Máquina:</span> {ordem.maquinaNome}
                     </div>
                     <div>
-                      <span className="font-medium">Técnico:</span> {ordem.tecnicoResponsavel}
+                      <span className="font-medium">Técnico:</span> {ordem.tecnicoResponsavelNome}
+                    </div>
+                    <div>
+                      <span className="font-medium">Requisitante:</span> {ordem.requisitanteNome}
+                    </div>
+                    <div>
+                      <span className="font-medium">Setor:</span> {ordem.setorNome}
                     </div>
                     <div>
                       <span className="font-medium">Abertura:</span> {format(new Date(ordem.dataAbertura), "dd/MM/yyyy HH:mm", { locale: ptBR })}

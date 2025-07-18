@@ -3,6 +3,7 @@ import {
   LayoutDashboard, 
   Users, 
   ClipboardList, 
+  Kanban,
   Wrench,
   BarChart3,
   Settings,
@@ -37,6 +38,11 @@ const menuItems = [
     title: "Ordens de Serviço",
     url: "/ordens",
     icon: ClipboardList,
+  },
+  {
+    title: "Backlog de Ordens",
+    url: "/backlog",
+    icon: Kanban,
   },
   {
     title: "Máquinas",
