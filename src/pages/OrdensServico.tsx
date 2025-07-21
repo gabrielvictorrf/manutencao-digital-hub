@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,6 @@ import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { saveOrdens, loadOrdens, loadMaquinas, saveTemposParada, loadTemposParada, loadRequisitantes, loadSetores } from '@/lib/storage';
 import { TempoParada } from '@/pages/TemposParada';
 
 export interface OrdemServico {
@@ -50,36 +50,10 @@ export interface OrdemServico {
 export default function OrdensServico() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
-  const [ordens, setOrdens] = useState<OrdemServico[]>([]);
-  const [maquinasDisponiveis, setMaquinasDisponiveis] = useState<{ id: string; nome: string }[]>([]);
-  const [requisitantesDisponiveis, setRequisitantesDisponiveis] = useState<{ id: string; nome: string; setor: string }[]>([]);
-  const [setoresDisponiveis, setSetoresDisponiveis] = useState<{ id: string; nome: string }[]>([]);
-  const [tecnicosDisponiveis, setTecnicosDisponiveis] = useState<{ id: string; nome: string }[]>([]);
+  const { ordens, maquinas, requisitantes, setores, tecnicos, addOrdem, updateOrdem, addTempoParada, temposParada } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editingOrdem, setEditingOrdem] = useState<OrdemServico | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Carregar dados do localStorage ao montar o componente
-  useEffect(() => {
-    const ordensCarregadas = loadOrdens();
-    const maquinasCarregadas = loadMaquinas();
-    const requisitantesCarregados = loadRequisitantes();
-    const setoresCarregados = loadSetores();
-    
-    // Simular base de técnicos vinda do Pessoal
-    const tecnicosBase = [
-      { id: '1', nome: 'João Silva' },
-      { id: '2', nome: 'Maria Santos' },
-      { id: '3', nome: 'Carlos Lima' },
-      { id: '4', nome: 'Ana Costa' },
-    ];
-    
-    setOrdens(ordensCarregadas);
-    setMaquinasDisponiveis(maquinasCarregadas.map(m => ({ id: m.id, nome: m.nome })));
-    setRequisitantesDisponiveis(requisitantesCarregados.map(r => ({ id: r.id, nome: r.nome, setor: r.setor })));
-    setSetoresDisponiveis(setoresCarregados.map(s => ({ id: s.id, nome: s.nome })));
-    setTecnicosDisponiveis(tecnicosBase);
-  }, []);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -102,10 +76,8 @@ export default function OrdensServico() {
   const criarTempoParada = (ordem: OrdemServico) => {
     if (!ordem.horaQuebra) return;
 
-    const temposExistentes = loadTemposParada();
-    
     // Verificar se já existe um tempo de parada para esta ordem
-    const tempoExistente = temposExistentes.find(t => t.ordemServicoId === ordem.id);
+    const tempoExistente = temposParada.find(t => t.ordemServicoId === ordem.id);
     if (tempoExistente) return; // Não criar duplicado
 
     const novoTempo: TempoParada = {
@@ -127,8 +99,7 @@ export default function OrdensServico() {
       criadoEm: new Date().toISOString(),
     };
 
-    const todosTempos = [...temposExistentes, novoTempo];
-    saveTemposParada(todosTempos);
+    addTempoParada(novoTempo);
   };
 
   // Gerar número de rastreio único
@@ -183,16 +154,15 @@ export default function OrdensServico() {
       return;
     }
 
-    const maquina = maquinasDisponiveis.find(m => m.id === formData.maquinaId);
-    const requisitante = requisitantesDisponiveis.find(r => r.id === formData.requisitanteId);
-    const setor = setoresDisponiveis.find(s => s.id === formData.setorId);
-    const tecnico = tecnicosDisponiveis.find(t => t.id === formData.tecnicoResponsavelId);
+    const maquina = maquinas.find(m => m.id === formData.maquinaId);
+    const requisitante = requisitantes.find(r => r.id === formData.requisitanteId);
+    const setor = setores.find(s => s.id === formData.setorId);
+    const tecnico = tecnicos.find(t => t.id === formData.tecnicoResponsavelId);
     const { tempoParadaTotal, tempoReparoEfetivo } = calcularTempos();
     
     if (editingOrdem) {
       // Atualizar ordem existente
-      const ordemAtualizada = {
-        ...editingOrdem,
+      const ordemAtualizada: Partial<OrdemServico> = {
         titulo: formData.titulo,
         descricao: formData.descricao,
         maquinaId: formData.maquinaId,
@@ -214,15 +184,11 @@ export default function OrdensServico() {
         observacoes: formData.observacoes,
       };
 
-      const novasOrdens = ordens.map(ordem => 
-        ordem.id === editingOrdem.id ? ordemAtualizada : ordem
-      );
-      
-      setOrdens(novasOrdens);
-      saveOrdens(novasOrdens);
+      updateOrdem(editingOrdem.id, ordemAtualizada);
       
       // Criar/atualizar tempo de parada
-      criarTempoParada(ordemAtualizada);
+      const ordemCompleta = { ...editingOrdem, ...ordemAtualizada } as OrdemServico;
+      criarTempoParada(ordemCompleta);
       
       toast({
         title: "Sucesso",
@@ -257,9 +223,7 @@ export default function OrdensServico() {
         criadoPor: user?.name || '',
       };
 
-      const novasOrdens = [...ordens, novaOrdem];
-      setOrdens(novasOrdens);
-      saveOrdens(novasOrdens);
+      addOrdem(novaOrdem);
       
       // Criar tempo de parada automaticamente
       criarTempoParada(novaOrdem);
@@ -369,7 +333,7 @@ export default function OrdensServico() {
                     <SelectValue placeholder="Selecione a máquina" />
                   </SelectTrigger>
                   <SelectContent>
-                    {maquinasDisponiveis.map(maquina => (
+                    {maquinas.map(maquina => (
                       <SelectItem key={maquina.id} value={maquina.id}>
                         {maquina.nome}
                       </SelectItem>
@@ -399,7 +363,7 @@ export default function OrdensServico() {
                     <SelectValue placeholder="Selecione o requisitante" />
                   </SelectTrigger>
                   <SelectContent>
-                    {requisitantesDisponiveis.map(requisitante => (
+                    {requisitantes.map(requisitante => (
                       <SelectItem key={requisitante.id} value={requisitante.id}>
                         {requisitante.nome} ({requisitante.setor})
                       </SelectItem>
@@ -415,7 +379,7 @@ export default function OrdensServico() {
                     <SelectValue placeholder="Selecione o setor" />
                   </SelectTrigger>
                   <SelectContent>
-                    {setoresDisponiveis.map(setor => (
+                    {setores.map(setor => (
                       <SelectItem key={setor.id} value={setor.id}>
                         {setor.nome}
                       </SelectItem>
@@ -448,7 +412,7 @@ export default function OrdensServico() {
                     <SelectValue placeholder="Selecione o técnico" />
                   </SelectTrigger>
                   <SelectContent>
-                    {tecnicosDisponiveis.map(tecnico => (
+                    {tecnicos.map(tecnico => (
                       <SelectItem key={tecnico.id} value={tecnico.id}>
                         {tecnico.nome}
                       </SelectItem>

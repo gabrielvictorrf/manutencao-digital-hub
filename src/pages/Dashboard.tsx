@@ -18,9 +18,8 @@ import {
   Search
 } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { OrdemServico } from '@/pages/OrdensServico';
-import { TempoParada } from '@/pages/TemposParada';
-import { loadOrdens, saveOrdens, loadTemposParada, loadMaquinas } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -28,19 +27,7 @@ import { ptBR } from 'date-fns/locale';
 export default function Dashboard() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
-  const [ordens, setOrdens] = useState<OrdemServico[]>([]);
-  const [temposParada, setTemposParada] = useState<TempoParada[]>([]);
-  const [maquinas, setMaquinas] = useState<any[]>([]);
-
-  useEffect(() => {
-    const ordensCarregadas = loadOrdens();
-    const temposCarregados = loadTemposParada();
-    const maquinasCarregadas = loadMaquinas();
-    
-    setOrdens(ordensCarregadas);
-    setTemposParada(temposCarregados);
-    setMaquinas(maquinasCarregadas);
-  }, []);
+  const { ordens, maquinas, temposParada, updateOrdem, tecnicos } = useData();
 
   const handleStatusChange = (ordemId: string, novoStatus: OrdemServico['status']) => {
     if (!canEdit) {
@@ -52,27 +39,22 @@ export default function Dashboard() {
       return;
     }
 
-    const ordensAtualizadas = ordens.map(ordem => {
-      if (ordem.id === ordemId) {
-        const ordemAtualizada = { ...ordem, status: novoStatus };
-        
-        if (novoStatus === 'em_andamento' && !ordem.dataInicio) {
-          ordemAtualizada.dataInicio = new Date().toISOString();
-        } else if (novoStatus === 'concluida' && !ordem.dataConclusao) {
-          ordemAtualizada.dataConclusao = new Date().toISOString();
-        }
-        
-        return ordemAtualizada;
-      }
-      return ordem;
-    });
+    const ordem = ordens.find(o => o.id === ordemId);
+    if (!ordem) return;
 
-    setOrdens(ordensAtualizadas);
-    saveOrdens(ordensAtualizadas);
+    const ordemAtualizada: Partial<OrdemServico> = { status: novoStatus };
+    
+    if (novoStatus === 'em_andamento' && !ordem.dataInicio) {
+      ordemAtualizada.dataInicio = new Date().toISOString();
+    } else if (novoStatus === 'concluida' && !ordem.dataConclusao) {
+      ordemAtualizada.dataConclusao = new Date().toISOString();
+    }
+
+    updateOrdem(ordemId, ordemAtualizada);
 
     toast({
       title: "Status atualizado",
-      description: `Ordem ${ordens.find(o => o.id === ordemId)?.numeroRastreio} marcada como ${getStatusLabel(novoStatus)}`,
+      description: `Ordem ${ordem.numeroRastreio} marcada como ${getStatusLabel(novoStatus)}`,
     });
   };
 
@@ -130,32 +112,23 @@ export default function Dashboard() {
     ? ((maquinasOperando / maquinas.length) * 100).toFixed(1)
     : 100;
 
-  // Top colaboradores por quantidade de ordens
-  const colaboradoresStats = ordens.reduce((acc: any, ordem) => {
-    if (ordem.tecnicoResponsavelNome) {
-      if (!acc[ordem.tecnicoResponsavelNome]) {
-        acc[ordem.tecnicoResponsavelNome] = { nome: ordem.tecnicoResponsavelNome, ordens: 0, especialidade: 'Manutenção' };
-      }
-      acc[ordem.tecnicoResponsavelNome].ordens++;
-    }
-    return acc;
-  }, {});
-
-  const topColaboradores = Object.values(colaboradoresStats)
-    .sort((a: any, b: any) => b.ordens - a.ordens)
+  // Top colaboradores por quantidade de ordens (usando dados reais dos técnicos)
+  const topColaboradores = tecnicos
+    .map(tecnico => ({
+      nome: tecnico.nome,
+      ordens: tecnico.ordensCompletas,
+      especialidade: tecnico.especialidade,
+      status: tecnico.status
+    }))
+    .sort((a, b) => b.ordens - a.ordens)
     .slice(0, 5);
 
-  // Estatísticas por setor/especialidade
-  const setoresStats = ordens.reduce((acc: any, ordem) => {
-    // Inferir setor baseado no tipo de problema ou máquina
-    const setor = ordem.titulo.toLowerCase().includes('elétric') ? 'Elétrica' :
-                  ordem.titulo.toLowerCase().includes('mecân') ? 'Mecânica' :
-                  ordem.titulo.toLowerCase().includes('hidráu') ? 'Hidráulica' : 'Geral';
-    
-    if (!acc[setor]) {
-      acc[setor] = 0;
+  // Estatísticas por setor/especialidade (usando dados reais dos técnicos)
+  const setoresStats = tecnicos.reduce((acc: Record<string, number>, tecnico) => {
+    if (!acc[tecnico.especialidade]) {
+      acc[tecnico.especialidade] = 0;
     }
-    acc[setor]++;
+    acc[tecnico.especialidade] += tecnico.ordensCompletas;
     return acc;
   }, {});
 

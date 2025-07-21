@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useData } from "@/contexts/DataContext";
 import { Plus, Edit, Trash2, User, Clock, Wrench } from "lucide-react";
 
 interface Tecnico {
@@ -21,44 +22,7 @@ interface Tecnico {
 
 export default function Pessoal() {
   const { toast } = useToast();
-  const [tecnicos, setTecnicos] = useState<Tecnico[]>([
-    {
-      id: "1",
-      nome: "João Silva",
-      especialidade: "Mecânica",
-      nivel: "Sênior",
-      horasTrabalhadasMes: 168,
-      ordensCompletas: 45,
-      status: "Ativo"
-    },
-    {
-      id: "2", 
-      nome: "Maria Santos",
-      especialidade: "Elétrica",
-      nivel: "Pleno",
-      horasTrabalhadasMes: 160,
-      ordensCompletas: 38,
-      status: "Ativo"
-    },
-    {
-      id: "3",
-      nome: "Carlos Lima", 
-      especialidade: "Hidráulica",
-      nivel: "Júnior",
-      horasTrabalhadasMes: 155,
-      ordensCompletas: 28,
-      status: "Férias"
-    },
-    {
-      id: "4",
-      nome: "Ana Costa",
-      especialidade: "Soldagem",
-      nivel: "Sênior", 
-      horasTrabalhadasMes: 172,
-      ordensCompletas: 52,
-      status: "Ativo"
-    }
-  ]);
+  const { tecnicos, addTecnico, updateTecnico, deleteTecnico } = useData();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTecnico, setEditingTecnico] = useState<Tecnico | null>(null);
@@ -73,23 +37,19 @@ export default function Pessoal() {
     e.preventDefault();
     
     if (editingTecnico) {
-      setTecnicos(prev => prev.map(t => 
-        t.id === editingTecnico.id 
-          ? { ...t, ...formData }
-          : t
-      ));
+      updateTecnico(editingTecnico.id, formData);
       toast({
         title: "Técnico atualizado",
         description: "Os dados do técnico foram atualizados com sucesso.",
       });
     } else {
-      const novoTecnico: Tecnico = {
+      const novoTecnico = {
         id: Date.now().toString(),
         ...formData,
         horasTrabalhadasMes: 0,
         ordensCompletas: 0
       };
-      setTecnicos(prev => [...prev, novoTecnico]);
+      addTecnico(novoTecnico);
       toast({
         title: "Técnico cadastrado",
         description: "Novo técnico foi adicionado ao sistema.",
@@ -113,7 +73,7 @@ export default function Pessoal() {
   };
 
   const handleDelete = (id: string) => {
-    setTecnicos(prev => prev.filter(t => t.id !== id));
+    deleteTecnico(id);
     toast({
       title: "Técnico removido",
       description: "O técnico foi removido do sistema.",

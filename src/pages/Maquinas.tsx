@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Edit, Settings, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { saveMaquinas, loadMaquinas } from '@/lib/storage';
 
 export interface Maquina {
   id: string;
@@ -49,16 +49,10 @@ const tiposMaquina = [
 export default function Maquinas() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
-  const [maquinas, setMaquinas] = useState<Maquina[]>([]);
+  const { maquinas, addMaquina, updateMaquina } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editingMaquina, setEditingMaquina] = useState<Maquina | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Carregar dados do localStorage ao montar o componente
-  useEffect(() => {
-    const maquinasCarregadas = loadMaquinas();
-    setMaquinas(maquinasCarregadas);
-  }, []);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -107,26 +101,20 @@ export default function Maquinas() {
 
     if (editingMaquina) {
       // Atualizar máquina existente
-      const novasMaquinas = maquinas.map(maquina => 
-        maquina.id === editingMaquina.id 
-          ? {
-              ...maquina,
-              nome: formData.nome,
-              tipo: formData.tipo,
-              fabricante: formData.fabricante,
-              modelo: formData.modelo,
-              anoFabricacao: formData.anoFabricacao,
-              numeroSerie: formData.numeroSerie,
-              localizacao: formData.localizacao,
-              criticidade: formData.criticidade,
-              especificacoesTecnicas: formData.especificacoesTecnicas,
-              observacoes: formData.observacoes,
-            }
-          : maquina
-      );
+      const maquinaAtualizada: Partial<Maquina> = {
+        nome: formData.nome,
+        tipo: formData.tipo,
+        fabricante: formData.fabricante,
+        modelo: formData.modelo,
+        anoFabricacao: formData.anoFabricacao,
+        numeroSerie: formData.numeroSerie,
+        localizacao: formData.localizacao,
+        criticidade: formData.criticidade,
+        especificacoesTecnicas: formData.especificacoesTecnicas,
+        observacoes: formData.observacoes,
+      };
       
-      setMaquinas(novasMaquinas);
-      saveMaquinas(novasMaquinas);
+      updateMaquina(editingMaquina.id, maquinaAtualizada);
       
       toast({
         title: "Sucesso",
@@ -153,9 +141,7 @@ export default function Maquinas() {
         criadoPor: user?.name || '',
       };
 
-      const novasMaquinas = [...maquinas, novaMaquina];
-      setMaquinas(novasMaquinas);
-      saveMaquinas(novasMaquinas);
+      addMaquina(novaMaquina);
       
       toast({
         title: "Sucesso",
