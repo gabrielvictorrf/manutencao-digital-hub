@@ -94,16 +94,23 @@ export default function Dashboard() {
   const ordensConcluidas = ordens.filter(o => o.status === 'concluida');
   const ordensCriticas = ordens.filter(o => o.prioridade === 'critica');
 
-  // Calcular MTTR e MTBF baseado nos tempos de parada reais
-  const temposReparoCompletos = temposParada.filter(tp => tp.duracao && tp.duracao > 0);
-  const mttrMedio = temposReparoCompletos.length > 0 
-    ? (temposReparoCompletos.reduce((acc, tp) => acc + (tp.duracao || 0), 0) / temposReparoCompletos.length / 60).toFixed(1)
+  // Calcular MTTR e MTBF baseado nos dados reais das ordens de serviço
+  const ordensConcluídasComTempos = ordensConcluidas.filter(o => o.tempoReparoEfetivo && o.tempoReparoEfetivo > 0);
+  const mttrMedio = ordensConcluídasComTempos.length > 0 
+    ? (ordensConcluídasComTempos.reduce((acc, ordem) => acc + (ordem.tempoReparoEfetivo || 0), 0) / ordensConcluídasComTempos.length / 60).toFixed(1)
     : '0';
 
-  const temposParadaCompletos = temposParada.filter(tp => tp.status === 'finalizada');
-  const mtbfMedio = temposParadaCompletos.length > 0 
-    ? (24 * 30 / temposParadaCompletos.length).toFixed(0) // Estimativa baseada em 30 dias
-    : '0';
+  // MTBF baseado no tempo entre falhas por máquina
+  const ordensComParada = ordens.filter(o => o.tempoParadaTotal && o.tempoParadaTotal > 0 && o.status === 'concluida');
+  const maquinasComOrdens = [...new Set(ordensComParada.map(o => o.maquinaId))];
+  
+  let mtbfMedio = '0';
+  if (maquinasComOrdens.length > 0 && ordensComParada.length > 1) {
+    // Calcular tempo médio entre falhas (assumindo 720 horas por mês por máquina)
+    const horasOperacaoTotal = maquinasComOrdens.length * 720; // 30 dias * 24 horas
+    const numeroFalhas = ordensComParada.length;
+    mtbfMedio = (horasOperacaoTotal / numeroFalhas).toFixed(0);
+  }
 
   // Calcular disponibilidade
   const maquinasOperando = maquinas.filter(m => m.status === 'operacional').length;

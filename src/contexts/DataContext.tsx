@@ -27,6 +27,7 @@ interface DataContextType {
   setOrdens: (ordens: OrdemServico[]) => void;
   addOrdem: (ordem: OrdemServico) => void;
   updateOrdem: (id: string, ordem: Partial<OrdemServico>) => void;
+  deleteOrdem: (id: string) => void;
   
   // Máquinas
   maquinas: Maquina[];
@@ -166,6 +167,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setOrdens(novasOrdens);
   };
 
+  const deleteOrdem = (id: string) => {
+    const novasOrdens = ordens.filter(ordem => ordem.id !== id);
+    setOrdens(novasOrdens);
+  };
+
   // Funções para Máquinas
   const setMaquinas = (novasMaquinas: Maquina[]) => {
     setMaquinasState(novasMaquinas);
@@ -261,7 +267,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const value: DataContextType = {
-    ordens, setOrdens, addOrdem, updateOrdem,
+    ordens, setOrdens, addOrdem, updateOrdem, deleteOrdem,
     maquinas, setMaquinas, addMaquina, updateMaquina,
     temposParada, setTemposParada, addTempoParada, updateTempoParada,
     tecnicos, setTecnicos, addTecnico, updateTecnico, deleteTecnico,

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, Search, Edit, Eye, Clock } from 'lucide-react';
+import { CalendarIcon, Plus, Search, Edit, Eye, Clock, Trash2 } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -50,7 +50,7 @@ export interface OrdemServico {
 export default function OrdensServico() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
-  const { ordens, maquinas, requisitantes, setores, tecnicos, addOrdem, updateOrdem, addTempoParada, temposParada } = useData();
+  const { ordens, maquinas, requisitantes, setores, tecnicos, addOrdem, updateOrdem, addTempoParada, temposParada, deleteOrdem } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editingOrdem, setEditingOrdem] = useState<OrdemServico | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,6 +127,26 @@ export default function OrdensServico() {
     });
     setEditingOrdem(null);
     setShowForm(false);
+  };
+
+  const handleDelete = (ordem: OrdemServico) => {
+    if (!canEdit) {
+      toast({
+        title: "Acesso negado",
+        description: "Você não tem permissão para excluir ordens",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (window.confirm(`Tem certeza que deseja excluir a ordem ${ordem.numeroRastreio}?`)) {
+      deleteOrdem(ordem.id);
+      
+      toast({
+        title: "Ordem excluída",
+        description: `Ordem ${ordem.numeroRastreio} foi excluída com sucesso`,
+      });
+    }
   };
 
   // Função para calcular tempos automaticamente
@@ -608,15 +628,27 @@ export default function OrdensServico() {
                    )}
                  </div>
                 
-                {canEdit && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(ordem)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                )}
+                 {canEdit && (
+                   <div className="flex space-x-2">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => handleEdit(ordem)}
+                       title="Editar ordem"
+                     >
+                       <Edit className="h-4 w-4" />
+                     </Button>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => handleDelete(ordem)}
+                       className="text-red-600 hover:text-red-700 hover:border-red-300"
+                       title="Excluir ordem"
+                     >
+                       <Trash2 className="h-4 w-4" />
+                     </Button>
+                   </div>
+                 )}
               </div>
             </CardContent>
           </Card>
