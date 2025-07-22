@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { 
   BarChart3, 
@@ -15,6 +14,7 @@ import {
   CheckCircle,
   Calculator
 } from "lucide-react";
+import { useData } from "@/contexts/DataContext";
 
 interface MaquinaMetricas {
   id: string;
@@ -31,54 +31,57 @@ interface MaquinaMetricas {
 export default function Relatorios() {
   const [periodoSelecionado, setPeriodoSelecionado] = useState("30");
   const [maquinaSelecionada, setMaquinaSelecionada] = useState("todas");
+  const { ordens, maquinas, temposParada } = useData();
 
-  // Dados simulados - serão substituídos por dados reais do Supabase
-  const maquinasMetricas: MaquinaMetricas[] = [
-    {
-      id: "1",
-      nome: "Torno CNC 01",
-      mttr: 2.5,
-      mtbf: 168,
-      disponibilidade: 94.2,
-      totalParadas: 5,
-      tempoTotalParada: 12.5,
-      ordensManutencao: 8,
-      criticidade: "Alta"
-    },
-    {
-      id: "2", 
-      nome: "Fresadora 03",
-      mttr: 3.2,
-      mtbf: 145,
-      disponibilidade: 91.8,
-      totalParadas: 7,
-      tempoTotalParada: 22.4,
-      ordensManutencao: 12,
-      criticidade: "Média"
-    },
-    {
-      id: "3",
-      nome: "Prensa 02",
-      mttr: 1.8,
-      mtbf: 220,
-      disponibilidade: 96.5,
-      totalParadas: 3,
-      tempoTotalParada: 5.4,
-      ordensManutencao: 4,
-      criticidade: "Baixa"
-    },
-    {
-      id: "4",
-      nome: "Solda 01", 
-      mttr: 4.1,
-      mtbf: 120,
-      disponibilidade: 88.3,
-      totalParadas: 9,
-      tempoTotalParada: 36.9,
-      ordensManutencao: 15,
-      criticidade: "Alta"
-    }
-  ];
+  // Calcular métricas baseadas nos dados reais
+  const calcularMetricasMaquina = () => {
+    return maquinas.map(maquina => {
+      const ordensDoMaquina = ordens.filter(ordem => ordem.maquinaId === maquina.id);
+      const paradasDoMaquina = temposParada.filter(parada => parada.maquinaId === maquina.id);
+      
+      const ordensFinalizadas = ordensDoMaquina.filter(ordem => ordem.status === "concluida");
+      const tempoTotalReparo = ordensFinalizadas.reduce((acc, ordem) => {
+        if (ordem.dataInicio && ordem.dataConclusao) {
+          const inicio = new Date(ordem.dataInicio);
+          const fim = new Date(ordem.dataConclusao);
+          return acc + (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60); // horas
+        }
+        return acc;
+      }, 0);
+      
+      const tempoTotalParada = paradasDoMaquina.reduce((acc, parada) => acc + parada.duracao, 0);
+      const totalParadas = paradasDoMaquina.length;
+      
+      // Calcular MTTR (Mean Time To Repair)
+      const mttr = ordensFinalizadas.length > 0 ? tempoTotalReparo / ordensFinalizadas.length : 0;
+      
+      // Calcular MTBF (Mean Time Between Failures) - assumindo 720h/mês
+      const tempoOperacional = 720 - tempoTotalParada;
+      const mtbf = totalParadas > 0 ? tempoOperacional / totalParadas : 720;
+      
+      // Calcular disponibilidade
+      const disponibilidade = (tempoOperacional / 720) * 100;
+      
+      // Determinar criticidade baseada na disponibilidade
+      let criticidade: "Baixa" | "Média" | "Alta" = "Baixa";
+      if (disponibilidade < 85) criticidade = "Alta";
+      else if (disponibilidade < 95) criticidade = "Média";
+      
+      return {
+        id: maquina.id,
+        nome: maquina.nome,
+        mttr: Math.round(mttr * 10) / 10,
+        mtbf: Math.round(mtbf),
+        disponibilidade: Math.round(disponibilidade * 10) / 10,
+        totalParadas,
+        tempoTotalParada: Math.round(tempoTotalParada * 10) / 10,
+        ordensManutencao: ordensDoMaquina.length,
+        criticidade
+      };
+    });
+  };
+
+  const maquinasMetricas = calcularMetricasMaquina();
 
   const getCriticidadeBadge = (criticidade: string) => {
     switch (criticidade) {

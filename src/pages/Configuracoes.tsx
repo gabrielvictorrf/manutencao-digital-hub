@@ -10,8 +10,62 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Key, Users, Shield } from "lucide-react";
+import { useData } from "@/contexts/DataContext";
 
 export default function Configuracoes() {
+  const { setores, requisitantes, addSetor, updateSetor, addRequisitante, updateRequisitante } = useData();
+  const [setorDialogOpen, setSetorDialogOpen] = useState(false);
+  const [requisitanteDialogOpen, setRequisitanteDialogOpen] = useState(false);
+  const [editingSetor, setEditingSetor] = useState<any>(null);
+  const [editingRequisitante, setEditingRequisitante] = useState<any>(null);
+  const [novoSetor, setNovoSetor] = useState({ nome: "", descricao: "" });
+  const [novoRequisitante, setNovoRequisitante] = useState({ nome: "", setor: "", email: "", telefone: "" });
+
+  const handleSaveSetor = () => {
+    if (editingSetor) {
+      updateSetor(editingSetor.id, novoSetor);
+    } else {
+      addSetor({
+        id: `setor-${Date.now()}`,
+        ...novoSetor,
+        responsavel: "Sistema",
+        status: "ativo",
+        criadoEm: new Date().toISOString()
+      });
+    }
+    setSetorDialogOpen(false);
+    setEditingSetor(null);
+    setNovoSetor({ nome: "", descricao: "" });
+  };
+
+  const handleSaveRequisitante = () => {
+    if (editingRequisitante) {
+      updateRequisitante(editingRequisitante.id, novoRequisitante);
+    } else {
+      addRequisitante({
+        id: `req-${Date.now()}`,
+        ...novoRequisitante,
+        cargo: "Requisitante",
+        status: "ativo",
+        criadoEm: new Date().toISOString()
+      });
+    }
+    setRequisitanteDialogOpen(false);
+    setEditingRequisitante(null);
+    setNovoRequisitante({ nome: "", setor: "", email: "", telefone: "" });
+  };
+
+  const handleEditSetor = (setor: any) => {
+    setEditingSetor(setor);
+    setNovoSetor({ nome: setor.nome, descricao: setor.descricao });
+    setSetorDialogOpen(true);
+  };
+
+  const handleEditRequisitante = (req: any) => {
+    setEditingRequisitante(req);
+    setNovoRequisitante({ nome: req.nome, setor: req.setor, email: req.email, telefone: req.telefone });
+    setRequisitanteDialogOpen(true);
+  };
   const { user, users, createUser, updateUser, deleteUser, changePassword, canAdmin } = useAuth();
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);

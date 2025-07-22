@@ -7,8 +7,7 @@ import {
   Wrench,
   BarChart3,
   Settings,
-  Timer,
-  Activity
+  Timer
 } from "lucide-react";
 import {
   Sidebar,
@@ -53,11 +52,6 @@ const menuItems = [
     title: "Relatórios MTTR/MTBF",
     url: "/relatorios",
     icon: BarChart3,
-  },
-  {
-    title: "Indicadores",
-    url: "/indicadores",
-    icon: Activity,
   },
 ];
 
