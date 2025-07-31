@@ -48,7 +48,7 @@ export interface OrdemServico {
 
 
 export default function OrdensServico() {
-  const { user, canEdit } = useAuth();
+  const { user, canEdit, canCreate } = useAuth();
   const { toast } = useToast();
   const { ordens, maquinas, requisitantes, setores, tecnicos, addOrdem, updateOrdem, addTempoParada, temposParada, deleteOrdem } = useData();
   const [showForm, setShowForm] = useState(false);
@@ -307,7 +307,7 @@ export default function OrdensServico() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold tracking-tight">Ordens de Serviço</h2>
-        {canEdit && (
+        {canCreate && (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Ordem
@@ -628,27 +628,27 @@ export default function OrdensServico() {
                    )}
                  </div>
                 
-                 {canEdit && (
-                   <div className="flex space-x-2">
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       onClick={() => handleEdit(ordem)}
-                       title="Editar ordem"
-                     >
-                       <Edit className="h-4 w-4" />
-                     </Button>
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       onClick={() => handleDelete(ordem)}
-                       className="text-red-600 hover:text-red-700 hover:border-red-300"
-                       title="Excluir ordem"
-                     >
-                       <Trash2 className="h-4 w-4" />
-                     </Button>
-                   </div>
-                 )}
+                  {canEdit && (
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(ordem)}
+                        title="Editar ordem"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(ordem)}
+                        className="text-red-600 hover:text-red-700 hover:border-red-300"
+                        title="Excluir ordem"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
               </div>
             </CardContent>
           </Card>

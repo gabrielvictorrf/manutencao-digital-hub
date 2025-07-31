@@ -10,9 +10,11 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Key, Users, Shield } from "lucide-react";
-import { useData } from "@/contexts/DataContext";
+import { useData, setoresRequisitantes } from "@/contexts/DataContext";
 
 export default function Configuracoes() {
+  const { user, users, createUser, updateUser, deleteUser, changePassword, canAdmin } = useAuth();
+  const { toast } = useToast();
   const { setores, requisitantes, addSetor, updateSetor, addRequisitante, updateRequisitante } = useData();
   const [setorDialogOpen, setSetorDialogOpen] = useState(false);
   const [requisitanteDialogOpen, setRequisitanteDialogOpen] = useState(false);
@@ -20,6 +22,23 @@ export default function Configuracoes() {
   const [editingRequisitante, setEditingRequisitante] = useState<any>(null);
   const [novoSetor, setNovoSetor] = useState({ nome: "", descricao: "" });
   const [novoRequisitante, setNovoRequisitante] = useState({ nome: "", setor: "", email: "", telefone: "" });
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+
+  const [newUser, setNewUser] = useState({
+    email: '',
+    name: '',
+    role: 'requisitante' as UserRole,
+    password: '',
+    active: true,
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    current: '',
+    new: '',
+    confirm: '',
+  });
 
   const handleSaveSetor = () => {
     if (editingSetor) {
@@ -66,25 +85,6 @@ export default function Configuracoes() {
     setNovoRequisitante({ nome: req.nome, setor: req.setor, email: req.email, telefone: req.telefone });
     setRequisitanteDialogOpen(true);
   };
-  const { user, users, createUser, updateUser, deleteUser, changePassword, canAdmin } = useAuth();
-  const { toast } = useToast();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<string | null>(null);
-
-  const [newUser, setNewUser] = useState({
-    email: '',
-    name: '',
-    role: 'visualizador' as UserRole,
-    password: '',
-    active: true,
-  });
-
-  const [passwordData, setPasswordData] = useState({
-    current: '',
-    new: '',
-    confirm: '',
-  });
 
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.name || !newUser.password) {
@@ -105,7 +105,7 @@ export default function Configuracoes() {
       setNewUser({
         email: '',
         name: '',
-        role: 'visualizador',
+        role: 'requisitante',
         password: '',
         active: true,
       });
@@ -180,8 +180,8 @@ export default function Configuracoes() {
         return <Badge className="bg-red-100 text-red-800">Administrador</Badge>;
       case 'operador':
         return <Badge className="bg-blue-100 text-blue-800">Operador</Badge>;
-      case 'visualizador':
-        return <Badge className="bg-green-100 text-green-800">Visualizador</Badge>;
+      case 'requisitante':
+        return <Badge className="bg-green-100 text-green-800">Requisitante</Badge>;
     }
   };
 
@@ -265,11 +265,16 @@ export default function Configuracoes() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="visualizador">Visualizador - Apenas leitura</SelectItem>
-                        <SelectItem value="operador">Operador - Pode editar ordens</SelectItem>
-                        <SelectItem value="admin">Administrador - Acesso total</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="operador">Operador</SelectItem>
+                        <SelectItem value="requisitante">Requisitante</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Admin:</strong> Acesso total ao sistema<br/>
+                      <strong>Operador:</strong> Pode criar, editar e visualizar dados<br/>
+                      <strong>Requisitante:</strong> Pode criar ordens de serviço e visualizar dados
+                    </p>
                   </div>
                   <div>
                     <Label htmlFor="password">Senha Inicial</Label>
@@ -334,6 +339,194 @@ export default function Configuracoes() {
                     </Button>
                   )}
                 </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gestão de Setores */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Gestão de Setores</CardTitle>
+              <CardDescription>
+                Configure os setores da empresa
+              </CardDescription>
+            </div>
+            <Dialog open={setorDialogOpen} onOpenChange={setSetorDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Setor
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingSetor ? 'Editar Setor' : 'Novo Setor'}</DialogTitle>
+                  <DialogDescription>
+                    {editingSetor ? 'Altere os dados do setor' : 'Adicione um novo setor'}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="nomeSetor">Nome do Setor</Label>
+                    <Input
+                      id="nomeSetor"
+                      value={novoSetor.nome}
+                      onChange={(e) => setNovoSetor({ ...novoSetor, nome: e.target.value })}
+                      placeholder="Nome do setor"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="descricaoSetor">Descrição</Label>
+                    <Input
+                      id="descricaoSetor"
+                      value={novoSetor.descricao}
+                      onChange={(e) => setNovoSetor({ ...novoSetor, descricao: e.target.value })}
+                      placeholder="Descrição do setor"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => {
+                      setSetorDialogOpen(false);
+                      setEditingSetor(null);
+                      setNovoSetor({ nome: "", descricao: "" });
+                    }}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleSaveSetor}>
+                      {editingSetor ? 'Salvar' : 'Criar'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {setores.map((setor) => (
+              <div key={setor.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <h4 className="font-medium">{setor.nome}</h4>
+                  <p className="text-sm text-muted-foreground">{setor.descricao}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditSetor(setor)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gestão de Requisitantes */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Gestão de Requisitantes</CardTitle>
+              <CardDescription>
+                Configure os requisitantes do sistema
+              </CardDescription>
+            </div>
+            <Dialog open={requisitanteDialogOpen} onOpenChange={setRequisitanteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Requisitante
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingRequisitante ? 'Editar Requisitante' : 'Novo Requisitante'}</DialogTitle>
+                  <DialogDescription>
+                    {editingRequisitante ? 'Altere os dados do requisitante' : 'Adicione um novo requisitante'}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="nome">Nome</Label>
+                    <Input
+                      id="nome"
+                      value={novoRequisitante.nome}
+                      onChange={(e) => setNovoRequisitante({ ...novoRequisitante, nome: e.target.value })}
+                      placeholder="Nome do requisitante"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="setor">Setor</Label>
+                    <Select value={novoRequisitante.setor} onValueChange={(value) => setNovoRequisitante({ ...novoRequisitante, setor: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o setor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {setoresRequisitantes.map((setor) => (
+                          <SelectItem key={setor} value={setor}>
+                            {setor}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      value={novoRequisitante.email}
+                      onChange={(e) => setNovoRequisitante({ ...novoRequisitante, email: e.target.value })}
+                      placeholder="Email do requisitante"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="telefone">Telefone</Label>
+                    <Input
+                      id="telefone"
+                      value={novoRequisitante.telefone}
+                      onChange={(e) => setNovoRequisitante({ ...novoRequisitante, telefone: e.target.value })}
+                      placeholder="Telefone do requisitante"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => {
+                      setRequisitanteDialogOpen(false);
+                      setEditingRequisitante(null);
+                      setNovoRequisitante({ nome: "", setor: "", email: "", telefone: "" });
+                    }}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleSaveRequisitante}>
+                      {editingRequisitante ? 'Salvar' : 'Criar'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {requisitantes.map((req) => (
+              <div key={req.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <h4 className="font-medium">{req.nome}</h4>
+                  <p className="text-sm text-muted-foreground">{req.setor} • {req.email}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditRequisitante(req)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
               </div>
             ))}
           </div>

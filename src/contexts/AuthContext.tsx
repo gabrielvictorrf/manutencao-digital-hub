@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type UserRole = 'admin' | 'operador' | 'visualizador';
+export type UserRole = 'admin' | 'operador' | 'requisitante';
 
 export interface User {
   id: string;
@@ -22,6 +22,7 @@ interface AuthContextType {
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   canEdit: boolean;
   canAdmin: boolean;
+  canCreate: boolean;
   isAuthenticated: boolean;
 }
 
@@ -122,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const canEdit = user?.role === 'admin' || user?.role === 'operador';
   const canAdmin = user?.role === 'admin';
+  const canCreate = user?.role === 'admin' || user?.role === 'operador' || user?.role === 'requisitante';
   const isAuthenticated = !!user;
 
   return (
@@ -136,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       changePassword,
       canEdit,
       canAdmin,
+      canCreate,
       isAuthenticated,
     }}>
       {children}

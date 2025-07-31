@@ -14,7 +14,7 @@ import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { saveTemposParada, loadTemposParada, loadOrdens } from '@/lib/storage';
+import { useData } from '@/contexts/DataContext';
 
 export interface TempoParada {
   id: string;
@@ -54,25 +54,17 @@ const motivosParada = [
 export default function TemposParada() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
-  const [temposParada, setTemposParada] = useState<TempoParada[]>([]);
-  const [ordensDisponiveis, setOrdensDisponiveis] = useState<{ id: string; numero: string; maquinaId: string; maquinaNome: string }[]>([]);
+  const { ordens, temposParada, addTempoParada, updateTempoParada } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editingTempo, setEditingTempo] = useState<TempoParada | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Carregar dados do localStorage ao montar o componente
-  useEffect(() => {
-    const temposCarregados = loadTemposParada();
-    const ordensCarregadas = loadOrdens();
-    
-    setTemposParada(temposCarregados);
-    setOrdensDisponiveis(ordensCarregadas.map(o => ({
-      id: o.id,
-      numero: o.numeroRastreio,
-      maquinaId: o.maquinaId,
-      maquinaNome: o.maquinaNome
-    })));
-  }, []);
+  const ordensDisponiveis = ordens.map(o => ({
+    id: o.id,
+    numero: o.numeroRastreio,
+    maquinaId: o.maquinaId,
+    maquinaNome: o.maquinaNome
+  }));
 
   const [formData, setFormData] = useState({
     ordemServicoId: '',
@@ -165,59 +157,34 @@ export default function TemposParada() {
       status = 'finalizada';
     }
 
+    const tempoData = {
+      ordemServicoId: formData.ordemServicoId,
+      ordemServicoNumero: ordemSelecionada.numero,
+      maquinaId: ordemSelecionada.maquinaId,
+      maquinaNome: ordemSelecionada.maquinaNome,
+      dataInicio: dataHoraInicio.toISOString(),
+      dataFim: dataHoraFim?.toISOString(),
+      duracao,
+      motivoParada: formData.motivoParada,
+      tipoParada: formData.tipoParada,
+      impactoProducao: formData.impactoProducao,
+      observacoes: formData.observacoes,
+      status,
+      responsavelRegistro: user?.name || '',
+    };
+
     if (editingTempo) {
-      // Atualizar tempo existente
-      const novosTempos = temposParada.map(tempo => 
-        tempo.id === editingTempo.id 
-          ? {
-              ...tempo,
-              ordemServicoId: formData.ordemServicoId,
-              ordemServicoNumero: ordemSelecionada.numero,
-              maquinaId: ordemSelecionada.maquinaId,
-              maquinaNome: ordemSelecionada.maquinaNome,
-              dataInicio: dataHoraInicio.toISOString(),
-              dataFim: dataHoraFim?.toISOString(),
-              duracao,
-              motivoParada: formData.motivoParada,
-              tipoParada: formData.tipoParada,
-              impactoProducao: formData.impactoProducao,
-              observacoes: formData.observacoes,
-              status,
-            }
-          : tempo
-      );
-      
-      setTemposParada(novosTempos);
-      saveTemposParada(novosTempos);
-      
+      updateTempoParada(editingTempo.id, tempoData);
       toast({
         title: "Sucesso",
         description: "Tempo de parada atualizado com sucesso!",
       });
     } else {
-      // Criar novo tempo de parada
-      const novoTempo: TempoParada = {
+      addTempoParada({
+        ...tempoData,
         id: Date.now().toString(),
-        ordemServicoId: formData.ordemServicoId,
-        ordemServicoNumero: ordemSelecionada.numero,
-        maquinaId: ordemSelecionada.maquinaId,
-        maquinaNome: ordemSelecionada.maquinaNome,
-        dataInicio: dataHoraInicio.toISOString(),
-        dataFim: dataHoraFim?.toISOString(),
-        duracao,
-        motivoParada: formData.motivoParada,
-        tipoParada: formData.tipoParada,
-        impactoProducao: formData.impactoProducao,
-        responsavelRegistro: user?.name || '',
-        observacoes: formData.observacoes,
-        status,
         criadoEm: new Date().toISOString(),
-      };
-
-      const novosTempos = [...temposParada, novoTempo];
-      setTemposParada(novosTempos);
-      saveTemposParada(novosTempos);
-      
+      });
       toast({
         title: "Sucesso",
         description: "Tempo de parada registrado com sucesso!",
@@ -259,19 +226,11 @@ export default function TemposParada() {
     const agora = new Date();
     const duracao = calcularDuracao(new Date(tempo.dataInicio), agora);
     
-    const novosTempos = temposParada.map(t => 
-      t.id === tempo.id 
-        ? {
-            ...t,
-            dataFim: agora.toISOString(),
-            duracao,
-            status: 'finalizada' as const,
-          }
-        : t
-    );
-    
-    setTemposParada(novosTempos);
-    saveTemposParada(novosTempos);
+    updateTempoParada(tempo.id, {
+      dataFim: agora.toISOString(),
+      duracao,
+      status: 'finalizada' as const,
+    });
     
     toast({
       title: "Sucesso",

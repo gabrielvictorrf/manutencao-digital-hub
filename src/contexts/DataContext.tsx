@@ -66,6 +66,41 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
+// Setores da empresa (fabril)
+export const setoresFabris = [
+  "Cálcio Dihidratado",
+  "Cálcio solução", 
+  "Magnésio Hexahidratado",
+  "Magnésio Solução",
+  "Cálcio Solução - Polimento",
+  "Ácido Clorídrico",
+  "Cálcio Solução Reação",
+  "Cálcio Solução Ênvase",
+  "Balança Rodoviária",
+  "Escritório Adm",
+  "Portaria",
+  "Casa de bomba de incêndio",
+  "Poço Artesiano",
+  "Almoxarifado",
+  "Outros"
+];
+
+// Setores dos requisitantes
+export const setoresRequisitantes = [
+  "Qualidade",
+  "Gerência", 
+  "Diretoria",
+  "Supervisão de produção",
+  "Supervisão de manutenção",
+  "Segurança e Meio Ambiente",
+  "RH",
+  "Compras",
+  "Contabilidade",
+  "Financeiro",
+  "Secretaria",
+  "Vendas"
+];
+
 // Dados iniciais dos técnicos
 const tecnicosIniciais: Tecnico[] = [
   {

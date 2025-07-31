@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useData } from "@/contexts/DataContext";
+import { useData, setoresFabris, setoresRequisitantes } from "@/contexts/DataContext";
 import { OrdemServico } from "@/pages/OrdensServico";
 
 interface OrdemServicoDialogProps {
@@ -29,7 +29,7 @@ interface OrdemServicoDialogProps {
 }
 
 export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemServicoDialogProps) {
-  const { maquinas, tecnicos, requisitantes, addOrdem, updateOrdem } = useData();
+  const { maquinas, tecnicos, requisitantes, setores, addOrdem, updateOrdem } = useData();
   
   const [formData, setFormData] = useState({
     numeroRastreio: "",
@@ -257,9 +257,9 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
                   <SelectValue placeholder="Selecione um setor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {requisitantes.map((req) => (
-                    <SelectItem key={req.id} value={req.setor}>
-                      {req.setor}
+                  {setoresFabris.map((setor) => (
+                    <SelectItem key={setor} value={setor}>
+                      {setor}
                     </SelectItem>
                   ))}
                 </SelectContent>
