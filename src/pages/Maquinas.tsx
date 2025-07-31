@@ -1,16 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit, Settings, AlertTriangle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Plus, Search, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import MaquinaDialog from '@/components/dialogs/MaquinaDialog';
 
 export interface Maquina {
   id: string;
@@ -47,126 +44,20 @@ const tiposMaquina = [
 ];
 
 export default function Maquinas() {
-  const { user, canEdit } = useAuth();
-  const { toast } = useToast();
-  const { maquinas, addMaquina, updateMaquina } = useData();
-  const [showForm, setShowForm] = useState(false);
+  const { canEdit } = useAuth();
+  const { maquinas } = useData();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMaquina, setEditingMaquina] = useState<Maquina | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [formData, setFormData] = useState({
-    nome: '',
-    tipo: '',
-    fabricante: '',
-    modelo: '',
-    anoFabricacao: new Date().getFullYear(),
-    numeroSerie: '',
-    localizacao: '',
-    criticidade: 'media' as 'baixa' | 'media' | 'alta' | 'critica',
-    especificacoesTecnicas: '',
-    observacoes: '',
-  });
-
-  const gerarCodigoMaquina = () => {
-    const proximoNumero = maquinas.length + 1;
-    return `MAQ${proximoNumero.toString().padStart(3, '0')}`;
-  };
-
-  const resetForm = () => {
-    setFormData({
-      nome: '',
-      tipo: '',
-      fabricante: '',
-      modelo: '',
-      anoFabricacao: new Date().getFullYear(),
-      numeroSerie: '',
-      localizacao: '',
-      criticidade: 'media',
-      especificacoesTecnicas: '',
-      observacoes: '',
-    });
+  const handleNovaMaquina = () => {
     setEditingMaquina(null);
-    setShowForm(false);
-  };
-
-  const handleSave = () => {
-    if (!formData.nome || !formData.tipo || !formData.fabricante || !formData.localizacao) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (editingMaquina) {
-      // Atualizar máquina existente
-      const maquinaAtualizada: Partial<Maquina> = {
-        nome: formData.nome,
-        tipo: formData.tipo,
-        fabricante: formData.fabricante,
-        modelo: formData.modelo,
-        anoFabricacao: formData.anoFabricacao,
-        numeroSerie: formData.numeroSerie,
-        localizacao: formData.localizacao,
-        criticidade: formData.criticidade,
-        especificacoesTecnicas: formData.especificacoesTecnicas,
-        observacoes: formData.observacoes,
-      };
-      
-      updateMaquina(editingMaquina.id, maquinaAtualizada);
-      
-      toast({
-        title: "Sucesso",
-        description: "Máquina atualizada com sucesso!",
-      });
-    } else {
-      // Criar nova máquina
-      const novaMaquina: Maquina = {
-        id: Date.now().toString(),
-        codigo: gerarCodigoMaquina(),
-        nome: formData.nome,
-        tipo: formData.tipo,
-        fabricante: formData.fabricante,
-        modelo: formData.modelo,
-        anoFabricacao: formData.anoFabricacao,
-        numeroSerie: formData.numeroSerie,
-        localizacao: formData.localizacao,
-        status: 'operacional',
-        criticidade: formData.criticidade,
-        horasOperacao: 0,
-        especificacoesTecnicas: formData.especificacoesTecnicas,
-        observacoes: formData.observacoes,
-        criadoEm: new Date().toISOString(),
-        criadoPor: user?.name || '',
-      };
-
-      addMaquina(novaMaquina);
-      
-      toast({
-        title: "Sucesso",
-        description: `Máquina ${novaMaquina.codigo} cadastrada com sucesso!`,
-      });
-    }
-
-    resetForm();
+    setDialogOpen(true);
   };
 
   const handleEdit = (maquina: Maquina) => {
     setEditingMaquina(maquina);
-    setFormData({
-      nome: maquina.nome,
-      tipo: maquina.tipo,
-      fabricante: maquina.fabricante,
-      modelo: maquina.modelo,
-      anoFabricacao: maquina.anoFabricacao,
-      numeroSerie: maquina.numeroSerie,
-      localizacao: maquina.localizacao,
-      criticidade: maquina.criticidade,
-      especificacoesTecnicas: maquina.especificacoesTecnicas || '',
-      observacoes: maquina.observacoes || '',
-    });
-    setShowForm(true);
+    setDialogOpen(true);
   };
 
   const filteredMaquinas = maquinas.filter(maquina =>
@@ -201,7 +92,7 @@ export default function Maquinas() {
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold tracking-tight">Gestão de Máquinas</h2>
         {canEdit && (
-          <Button onClick={() => setShowForm(true)}>
+          <Button onClick={handleNovaMaquina}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Máquina
           </Button>
@@ -219,147 +110,11 @@ export default function Maquinas() {
         />
       </div>
 
-      {/* Formulário */}
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {editingMaquina ? 'Editar Máquina' : 'Nova Máquina'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="nome">Nome da Máquina *</Label>
-                <Input
-                  id="nome"
-                  value={formData.nome}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-                  placeholder="Nome identificador da máquina"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="tipo">Tipo *</Label>
-                <Select value={formData.tipo} onValueChange={(value) => setFormData(prev => ({ ...prev, tipo: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tiposMaquina.map(tipo => (
-                      <SelectItem key={tipo} value={tipo}>
-                        {tipo}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="fabricante">Fabricante *</Label>
-                <Input
-                  id="fabricante"
-                  value={formData.fabricante}
-                  onChange={(e) => setFormData(prev => ({ ...prev, fabricante: e.target.value }))}
-                  placeholder="Fabricante da máquina"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="modelo">Modelo</Label>
-                <Input
-                  id="modelo"
-                  value={formData.modelo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
-                  placeholder="Modelo da máquina"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="ano">Ano de Fabricação</Label>
-                <Input
-                  id="ano"
-                  type="number"
-                  value={formData.anoFabricacao}
-                  onChange={(e) => setFormData(prev => ({ ...prev, anoFabricacao: parseInt(e.target.value) || new Date().getFullYear() }))}
-                  min="1900"
-                  max={new Date().getFullYear()}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="numeroSerie">Número de Série</Label>
-                <Input
-                  id="numeroSerie"
-                  value={formData.numeroSerie}
-                  onChange={(e) => setFormData(prev => ({ ...prev, numeroSerie: e.target.value }))}
-                  placeholder="Número de série da máquina"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="localizacao">Localização *</Label>
-                <Input
-                  id="localizacao"
-                  value={formData.localizacao}
-                  onChange={(e) => setFormData(prev => ({ ...prev, localizacao: e.target.value }))}
-                  placeholder="Setor/Local onde está instalada"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="criticidade">Criticidade</Label>
-              <Select value={formData.criticidade} onValueChange={(value: any) => setFormData(prev => ({ ...prev, criticidade: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="baixa">Baixa</SelectItem>
-                  <SelectItem value="media">Média</SelectItem>
-                  <SelectItem value="alta">Alta</SelectItem>
-                  <SelectItem value="critica">Crítica</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="especificacoes">Especificações Técnicas</Label>
-              <Textarea
-                id="especificacoes"
-                value={formData.especificacoesTecnicas}
-                onChange={(e) => setFormData(prev => ({ ...prev, especificacoesTecnicas: e.target.value }))}
-                placeholder="Detalhes técnicos da máquina"
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="observacoes">Observações</Label>
-              <Textarea
-                id="observacoes"
-                value={formData.observacoes}
-                onChange={(e) => setFormData(prev => ({ ...prev, observacoes: e.target.value }))}
-                placeholder="Observações adicionais"
-                rows={2}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={resetForm}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSave}>
-                {editingMaquina ? 'Atualizar' : 'Salvar'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <MaquinaDialog
+        isOpen={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maquina={editingMaquina}
+      />
 
       {/* Lista de Máquinas */}
       <div className="grid gap-4">

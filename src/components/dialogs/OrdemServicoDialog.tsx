@@ -251,13 +251,13 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="setor">Setor</Label>
+              <Label htmlFor="setor">Setor *</Label>
               <Select value={formData.setorId} onValueChange={(value) => setFormData({ ...formData, setorId: value })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione um setor" />
+                  <SelectValue placeholder="Selecione o setor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {setoresFabris.map((setor) => (
+                  {setoresFabris.map(setor => (
                     <SelectItem key={setor} value={setor}>
                       {setor}
                     </SelectItem>
