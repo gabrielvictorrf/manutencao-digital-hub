@@ -11,6 +11,15 @@ import { OrdemServico } from '@/pages/OrdensServico';
 import { Maquina } from '@/pages/Maquinas';
 import { TempoParada } from '@/pages/TemposParada';
 
+export interface TipoEquipamento {
+  id: string;
+  nome: string;
+  categoria: string;
+  descricao?: string;
+  criadoEm: string;
+  criadoPor: string;
+}
+
 interface Tecnico {
   id: string;
   nome: string;
@@ -59,6 +68,14 @@ interface DataContextType {
   setSetores: (setores: Setor[]) => void;
   addSetor: (setor: Setor) => void;
   updateSetor: (id: string, setor: Partial<Setor>) => void;
+  deleteSetor: (id: string) => void;
+  
+  // Tipos de Equipamento
+  tiposEquipamento: TipoEquipamento[];
+  setTiposEquipamento: (tipos: TipoEquipamento[]) => void;
+  addTipoEquipamento: (tipo: TipoEquipamento) => void;
+  updateTipoEquipamento: (id: string, tipo: Partial<TipoEquipamento>) => void;
+  deleteTipoEquipamento: (id: string) => void;
   
   // Método para sincronizar tudo
   refreshData: () => void;
@@ -148,6 +165,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [tecnicos, setTecnicosState] = useState<Tecnico[]>(tecnicosIniciais);
   const [requisitantes, setRequisitantesState] = useState<Requisitante[]>([]);
   const [setores, setSetoresState] = useState<Setor[]>([]);
+  const [tiposEquipamento, setTiposEquipamentoState] = useState<TipoEquipamento[]>([]);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -160,12 +178,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const temposCarregados = loadTemposParada();
     const requisitantesCarregados = loadRequisitantes();
     const setoresCarregados = loadSetores();
+    const tiposCarregados = JSON.parse(localStorage.getItem('tiposEquipamento') || '[]');
 
     setOrdensState(ordensCarregadas);
     setMaquinasState(maquinasCarregadas);
     setTemposParadaState(temposCarregados);
     setRequisitantesState(requisitantesCarregados);
     setSetoresState(setoresCarregados);
+    setTiposEquipamentoState(tiposCarregados);
 
     // Atualizar contador de ordens dos técnicos
     const ordensCountPorTecnico = ordensCarregadas.reduce((acc: Record<string, number>, ordem) => {
@@ -301,13 +321,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSetores(novosSetores);
   };
 
+  const deleteSetor = (id: string) => {
+    const novosSetores = setores.filter(setor => setor.id !== id);
+    setSetores(novosSetores);
+  };
+
+  // Funções para Tipos de Equipamento
+  const setTiposEquipamento = (novosTipos: TipoEquipamento[]) => {
+    setTiposEquipamentoState(novosTipos);
+    localStorage.setItem('tiposEquipamento', JSON.stringify(novosTipos));
+  };
+
+  const addTipoEquipamento = (tipo: TipoEquipamento) => {
+    const novosTipos = [...tiposEquipamento, tipo];
+    setTiposEquipamento(novosTipos);
+  };
+
+  const updateTipoEquipamento = (id: string, tipoUpdate: Partial<TipoEquipamento>) => {
+    const novosTipos = tiposEquipamento.map(tipo => 
+      tipo.id === id ? { ...tipo, ...tipoUpdate } : tipo
+    );
+    setTiposEquipamento(novosTipos);
+  };
+
+  const deleteTipoEquipamento = (id: string) => {
+    const novosTipos = tiposEquipamento.filter(tipo => tipo.id !== id);
+    setTiposEquipamento(novosTipos);
+  };
+
   const value: DataContextType = {
     ordens, setOrdens, addOrdem, updateOrdem, deleteOrdem,
     maquinas, setMaquinas, addMaquina, updateMaquina,
     temposParada, setTemposParada, addTempoParada, updateTempoParada,
     tecnicos, setTecnicos, addTecnico, updateTecnico, deleteTecnico,
     requisitantes, setRequisitantes, addRequisitante, updateRequisitante,
-    setores, setSetores, addSetor, updateSetor,
+    setores, setSetores, addSetor, updateSetor, deleteSetor,
+    tiposEquipamento, setTiposEquipamento, addTipoEquipamento, updateTipoEquipamento, deleteTipoEquipamento,
     refreshData
   };
 

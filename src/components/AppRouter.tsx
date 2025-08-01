@@ -4,7 +4,7 @@ import Pessoal from "@/pages/Pessoal";
 import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
 import OrdensServico from "@/pages/OrdensServico";
-
+import Setores from "@/pages/Setores";
 import Maquinas from "@/pages/Maquinas";
 import TemposParada from "@/pages/TemposParada";
 
@@ -23,6 +23,8 @@ export function AppRouter() {
       return <OrdensServico />;
     case "/maquinas":
       return <Maquinas />;
+    case "/setores":
+      return <Setores />;
     case "/paradas":
       return <TemposParada />;
     case "/indicadores":

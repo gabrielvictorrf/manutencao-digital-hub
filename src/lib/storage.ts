@@ -92,10 +92,12 @@ export interface Requisitante {
 export interface Setor {
   id: string;
   nome: string;
-  descricao: string;
-  responsavel: string;
-  status: 'ativo' | 'inativo';
+  tipo: 'fabril' | 'administrativo';
+  descricao?: string;
+  responsavel?: string;
+  status?: 'ativo' | 'inativo';
   criadoEm: string;
+  criadoPor: string;
 }
 
 // Funções para requisitantes
@@ -147,41 +149,6 @@ export const saveSetores = (setores: Setor[]): void => {
 };
 
 export const loadSetores = (): Setor[] => {
-  const defaultSetores: Setor[] = [
-    {
-      id: '1',
-      nome: 'Produção',
-      descricao: 'Setor responsável pela fabricação dos produtos',
-      responsavel: 'Carlos Silva',
-      status: 'ativo',
-      criadoEm: new Date().toISOString(),
-    },
-    {
-      id: '2',
-      nome: 'Qualidade',
-      descricao: 'Setor responsável pelo controle de qualidade',
-      responsavel: 'Ana Santos',
-      status: 'ativo',
-      criadoEm: new Date().toISOString(),
-    },
-    {
-      id: '3',
-      nome: 'Logística',
-      descricao: 'Setor responsável pela movimentação de materiais',
-      responsavel: 'Roberto Lima',
-      status: 'ativo',
-      criadoEm: new Date().toISOString(),
-    },
-    {
-      id: '4',
-      nome: 'Manutenção',
-      descricao: 'Setor responsável pela manutenção dos equipamentos',
-      responsavel: 'João Silva',
-      status: 'ativo',
-      criadoEm: new Date().toISOString(),
-    }
-  ];
-
   const saved = loadFromStorage<Setor>(STORAGE_KEYS.SETORES);
-  return saved.length > 0 ? saved : defaultSetores;
+  return saved;
 };

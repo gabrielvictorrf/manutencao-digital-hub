@@ -32,7 +32,7 @@ const tiposMaquina = [
 export default function MaquinaDialog({ isOpen, onClose, maquina }: MaquinaDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { maquinas, addMaquina, updateMaquina } = useData();
+  const { maquinas, addMaquina, updateMaquina, tiposEquipamento, setores } = useData();
   
   const [formData, setFormData] = useState({
     nome: '',
@@ -180,6 +180,11 @@ export default function MaquinaDialog({ isOpen, onClose, maquina }: MaquinaDialo
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
+                  {tiposEquipamento.map(tipo => (
+                    <SelectItem key={tipo.id} value={tipo.nome}>
+                      {tipo.nome}
+                    </SelectItem>
+                  ))}
                   {tiposMaquina.map(tipo => (
                     <SelectItem key={tipo} value={tipo}>
                       {tipo}
@@ -237,12 +242,18 @@ export default function MaquinaDialog({ isOpen, onClose, maquina }: MaquinaDialo
 
             <div>
               <Label htmlFor="localizacao">Localização *</Label>
-              <Input
-                id="localizacao"
-                value={formData.localizacao}
-                onChange={(e) => setFormData(prev => ({ ...prev, localizacao: e.target.value }))}
-                placeholder="Setor/Local onde está instalada"
-              />
+              <Select value={formData.localizacao} onValueChange={(value) => setFormData(prev => ({ ...prev, localizacao: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o setor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {setores.map(setor => (
+                    <SelectItem key={setor.id} value={setor.nome}>
+                      {setor.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

@@ -293,10 +293,10 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="tecnico">Técnico Responsável</Label>
+              <Label htmlFor="tecnico">Profissional</Label>
               <Select value={formData.tecnicoResponsavelId} onValueChange={(value) => setFormData({ ...formData, tecnicoResponsavelId: value })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione um técnico" />
+                  <SelectValue placeholder="Selecione um profissional" />
                 </SelectTrigger>
                 <SelectContent>
                   {tecnicos.map((tecnico) => (

@@ -47,9 +47,11 @@ export default function Configuracoes() {
       addSetor({
         id: `setor-${Date.now()}`,
         ...novoSetor,
+        tipo: 'administrativo',
         responsavel: "Sistema",
         status: "ativo",
-        criadoEm: new Date().toISOString()
+        criadoEm: new Date().toISOString(),
+        criadoPor: "Sistema"
       });
     }
     setSetorDialogOpen(false);

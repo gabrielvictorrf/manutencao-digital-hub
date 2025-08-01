@@ -7,7 +7,8 @@ import {
   Wrench,
   BarChart3,
   Settings,
-  Timer
+  Timer,
+  Building2
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,14 +45,14 @@ const menuItems = [
     icon: Wrench,
   },
   {
+    title: "Setores",
+    url: "/setores",
+    icon: Building2,
+  },
+  {
     title: "Tempos de Parada",
     url: "/paradas",
     icon: Timer,
-  },
-  {
-    title: "Relatórios MTTR/MTBF",
-    url: "/relatorios",
-    icon: BarChart3,
   },
 ];
 
