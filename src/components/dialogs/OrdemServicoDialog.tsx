@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/select";
 import { useData, setoresFabris, setoresRequisitantes } from "@/contexts/DataContext";
 import { OrdemServico } from "@/pages/OrdensServico";
+import { TempoParada } from "@/pages/TemposParada";
+import { differenceInMinutes } from "date-fns";
 
 interface OrdemServicoDialogProps {
   open: boolean;
@@ -29,7 +31,7 @@ interface OrdemServicoDialogProps {
 }
 
 export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemServicoDialogProps) {
-  const { maquinas, tecnicos, requisitantes, setores, addOrdem, updateOrdem } = useData();
+  const { maquinas, tecnicos, requisitantes, setores, addOrdem, updateOrdem, addTempoParada, updateTempoParada, temposParada } = useData();
   
   const [formData, setFormData] = useState({
     numeroRastreio: "",
@@ -44,7 +46,12 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
     dataAbertura: new Date().toISOString().split('T')[0],
     dataInicio: "",
     dataConclusao: "",
-    observacoes: ""
+    observacoes: "",
+    // Novos campos para métricas
+    horaQuebra: "",
+    horaInicioReparo: "",
+    horaFimReparo: "",
+    horaVoltaOperacao: ""
   });
 
   useEffect(() => {
@@ -62,7 +69,11 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
         dataAbertura: ordem.dataAbertura.split('T')[0],
         dataInicio: ordem.dataInicio?.split('T')[0] || "",
         dataConclusao: ordem.dataConclusao?.split('T')[0] || "",
-        observacoes: ordem.observacoes || ""
+        observacoes: ordem.observacoes || "",
+        horaQuebra: ordem.horaQuebra || "",
+        horaInicioReparo: ordem.horaInicioReparo || "",
+        horaFimReparo: ordem.horaFimReparo || "",
+        horaVoltaOperacao: ordem.horaVoltaOperacao || ""
       });
     } else if (mode === "create") {
       setFormData({
@@ -78,10 +89,62 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
         dataAbertura: new Date().toISOString().split('T')[0],
         dataInicio: "",
         dataConclusao: "",
-        observacoes: ""
+        observacoes: "",
+        horaQuebra: "",
+        horaInicioReparo: "",
+        horaFimReparo: "",
+        horaVoltaOperacao: ""
       });
     }
   }, [ordem, mode, open]);
+
+  // Função para calcular tempos automaticamente
+  const calcularTempos = () => {
+    if (!formData.horaQuebra) return { tempoParadaTotal: 0, tempoReparoEfetivo: 0 };
+
+    const quebra = new Date(formData.horaQuebra);
+    const volta = formData.horaVoltaOperacao ? new Date(formData.horaVoltaOperacao) : null;
+    const inicioReparo = formData.horaInicioReparo ? new Date(formData.horaInicioReparo) : null;
+    const fimReparo = formData.horaFimReparo ? new Date(formData.horaFimReparo) : null;
+
+    const tempoParadaTotal = volta ? differenceInMinutes(volta, quebra) : 0;
+    const tempoReparoEfetivo = (inicioReparo && fimReparo) ? differenceInMinutes(fimReparo, inicioReparo) : 0;
+
+    return { tempoParadaTotal, tempoReparoEfetivo };
+  };
+
+  // Função para criar/atualizar tempo de parada automaticamente
+  const sincronizarTempoParada = (ordemAtualizada: OrdemServico) => {
+    if (!ordemAtualizada.horaQuebra) return;
+
+    // Verificar se já existe um tempo de parada para esta ordem
+    const tempoExistente = temposParada.find(t => t.ordemServicoId === ordemAtualizada.id);
+    
+    const novoTempo: TempoParada = {
+      id: tempoExistente?.id || `tp_${ordemAtualizada.id}_${Date.now()}`,
+      ordemServicoId: ordemAtualizada.id,
+      ordemServicoNumero: ordemAtualizada.numeroRastreio,
+      maquinaId: ordemAtualizada.maquinaId,
+      maquinaNome: ordemAtualizada.maquinaNome,
+      dataInicio: ordemAtualizada.horaQuebra,
+      dataFim: ordemAtualizada.horaVoltaOperacao,
+      duracao: ordemAtualizada.tempoParadaTotal || 0,
+      motivoParada: 'Manutenção Corretiva',
+      tipoParada: 'nao_programada',
+      impactoProducao: ordemAtualizada.prioridade === 'critica' ? 'critico' : 
+                      ordemAtualizada.prioridade === 'alta' ? 'alto' : 'medio',
+      responsavelRegistro: ordemAtualizada.criadoPor,
+      observacoes: `Tempo de parada sincronizado automaticamente da OS ${ordemAtualizada.numeroRastreio}. Reparo efetivo: ${ordemAtualizada.tempoReparoEfetivo || 0} minutos.`,
+      status: ordemAtualizada.horaVoltaOperacao ? 'finalizada' : 'em_andamento',
+      criadoEm: tempoExistente?.criadoEm || new Date().toISOString(),
+    };
+
+    if (tempoExistente) {
+      updateTempoParada(tempoExistente.id, novoTempo);
+    } else {
+      addTempoParada(novoTempo);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +152,7 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
     const maquina = maquinas.find(m => m.id === formData.maquinaId);
     const requisitante = requisitantes.find(r => r.id === formData.requisitanteId);
     const tecnico = tecnicos.find(t => t.id === formData.tecnicoResponsavelId);
+    const { tempoParadaTotal, tempoReparoEfetivo } = calcularTempos();
 
     const ordemData: OrdemServico = {
       id: ordem?.id || Date.now().toString(),
@@ -109,7 +173,14 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
       dataInicio: formData.dataInicio || undefined,
       dataConclusao: formData.dataConclusao || undefined,
       observacoes: formData.observacoes || undefined,
-      criadoPor: ordem?.criadoPor || "Sistema"
+      criadoPor: ordem?.criadoPor || "Sistema",
+      // Novos campos de tempo
+      horaQuebra: formData.horaQuebra || undefined,
+      horaInicioReparo: formData.horaInicioReparo || undefined,
+      horaFimReparo: formData.horaFimReparo || undefined,
+      horaVoltaOperacao: formData.horaVoltaOperacao || undefined,
+      tempoParadaTotal,
+      tempoReparoEfetivo
     };
 
     if (mode === "create") {
@@ -117,6 +188,9 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
     } else {
       updateOrdem(ordem!.id, ordemData);
     }
+
+    // Sincronizar tempo de parada automaticamente
+    sincronizarTempoParada(ordemData);
 
     onOpenChange(false);
   };
@@ -300,15 +374,85 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="observacoes">Observações</Label>
-            <Textarea
-              id="observacoes"
-              value={formData.observacoes}
-              onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-              placeholder="Observações adicionais..."
-            />
-          </div>
+            {/* Seção de Tempos de Parada para Métricas */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Label className="text-base font-semibold">Tempos de Parada (Para Métricas MTTR/MTBF)</Label>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="horaQuebra">Hora da Quebra/Problema</Label>
+                  <input
+                    id="horaQuebra"
+                    type="datetime-local"
+                    value={formData.horaQuebra}
+                    onChange={(e) => setFormData({ ...formData, horaQuebra: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="horaInicioReparo">Hora Início do Reparo</Label>
+                  <input
+                    id="horaInicioReparo"
+                    type="datetime-local"
+                    value={formData.horaInicioReparo}
+                    onChange={(e) => setFormData({ ...formData, horaInicioReparo: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="horaFimReparo">Hora Fim do Reparo</Label>
+                  <input
+                    id="horaFimReparo"
+                    type="datetime-local"
+                    value={formData.horaFimReparo}
+                    onChange={(e) => setFormData({ ...formData, horaFimReparo: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="horaVoltaOperacao">Hora Volta à Operação</Label>
+                  <input
+                    id="horaVoltaOperacao"
+                    type="datetime-local"
+                    value={formData.horaVoltaOperacao}
+                    onChange={(e) => setFormData({ ...formData, horaVoltaOperacao: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+              </div>
+              
+              {/* Exibir tempos calculados */}
+              {formData.horaQuebra && (
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium mb-2">Tempos Calculados:</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Tempo Parada Total:</span>{' '}
+                      {calcularTempos().tempoParadaTotal > 0 ? `${Math.floor(calcularTempos().tempoParadaTotal / 60)}h ${calcularTempos().tempoParadaTotal % 60}min` : '--'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Tempo Reparo Efetivo:</span>{' '}
+                      {calcularTempos().tempoReparoEfetivo > 0 ? `${Math.floor(calcularTempos().tempoReparoEfetivo / 60)}h ${calcularTempos().tempoReparoEfetivo % 60}min` : '--'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="observacoes">Observações</Label>
+              <Textarea
+                id="observacoes"
+                value={formData.observacoes}
+                onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                placeholder="Observações adicionais..."
+              />
+            </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

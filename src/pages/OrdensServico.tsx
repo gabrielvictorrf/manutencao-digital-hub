@@ -1,21 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, Search, Edit, Eye, Clock, Trash2 } from 'lucide-react';
-import { format, differenceInMinutes } from 'date-fns';
+import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { TempoParada } from '@/pages/TemposParada';
+import { OrdemServicoDialog } from '@/components/dialogs/OrdemServicoDialog';
 
 export interface OrdemServico {
   id: string;
@@ -48,86 +43,13 @@ export interface OrdemServico {
 
 
 export default function OrdensServico() {
-  const { user, canEdit, canCreate } = useAuth();
+  const { canEdit, canCreate } = useAuth();
   const { toast } = useToast();
-  const { ordens, maquinas, requisitantes, setores, tecnicos, addOrdem, updateOrdem, addTempoParada, temposParada, deleteOrdem } = useData();
-  const [showForm, setShowForm] = useState(false);
+  const { ordens, deleteOrdem } = useData();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOrdem, setEditingOrdem] = useState<OrdemServico | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Form state
-  const [formData, setFormData] = useState({
-    titulo: '',
-    descricao: '',
-    maquinaId: '',
-    requisitanteId: '',
-    setorId: '',
-    prioridade: 'media' as 'baixa' | 'media' | 'alta' | 'critica',
-    tecnicoResponsavelId: '',
-    dataInicio: null as Date | null,
-    horaQuebra: '',
-    horaInicioReparo: '',
-    horaFimReparo: '',
-    horaVoltaOperacao: '',
-    observacoes: '',
-  });
-
-  // Função para criar automaticamente o tempo de parada
-  const criarTempoParada = (ordem: OrdemServico) => {
-    if (!ordem.horaQuebra) return;
-
-    // Verificar se já existe um tempo de parada para esta ordem
-    const tempoExistente = temposParada.find(t => t.ordemServicoId === ordem.id);
-    if (tempoExistente) return; // Não criar duplicado
-
-    const novoTempo: TempoParada = {
-      id: `tp_${ordem.id}_${Date.now()}`,
-      ordemServicoId: ordem.id,
-      ordemServicoNumero: ordem.numeroRastreio,
-      maquinaId: ordem.maquinaId,
-      maquinaNome: ordem.maquinaNome,
-      dataInicio: ordem.horaQuebra,
-      dataFim: ordem.horaVoltaOperacao,
-      duracao: ordem.tempoParadaTotal || 0,
-      motivoParada: 'Manutenção Corretiva',
-      tipoParada: 'nao_programada',
-      impactoProducao: ordem.prioridade === 'critica' ? 'critico' : 
-                      ordem.prioridade === 'alta' ? 'alto' : 'medio',
-      responsavelRegistro: ordem.criadoPor,
-      observacoes: `Tempo de parada gerado automaticamente da OS ${ordem.numeroRastreio}. Reparo efetivo: ${ordem.tempoReparoEfetivo || 0} minutos.`,
-      status: ordem.horaVoltaOperacao ? 'finalizada' : 'em_andamento',
-      criadoEm: new Date().toISOString(),
-    };
-
-    addTempoParada(novoTempo);
-  };
-
-  // Gerar número de rastreio único
-  const gerarNumeroRastreio = () => {
-    const ano = new Date().getFullYear();
-    const proximoNumero = ordens.length + 1;
-    return `OS${ano}${proximoNumero.toString().padStart(4, '0')}`;
-  };
-
-  const resetForm = () => {
-    setFormData({
-      titulo: '',
-      descricao: '',
-      maquinaId: '',
-      requisitanteId: '',
-      setorId: '',
-      prioridade: 'media',
-      tecnicoResponsavelId: '',
-      dataInicio: null,
-      horaQuebra: '',
-      horaInicioReparo: '',
-      horaFimReparo: '',
-      horaVoltaOperacao: '',
-      observacoes: '',
-    });
-    setEditingOrdem(null);
-    setShowForm(false);
-  };
 
   const handleDelete = (ordem: OrdemServico) => {
     if (!canEdit) {
@@ -149,133 +71,16 @@ export default function OrdensServico() {
     }
   };
 
-  // Função para calcular tempos automaticamente
-  const calcularTempos = () => {
-    if (!formData.horaQuebra) return { tempoParadaTotal: 0, tempoReparoEfetivo: 0 };
-
-    const quebra = new Date(formData.horaQuebra);
-    const volta = formData.horaVoltaOperacao ? new Date(formData.horaVoltaOperacao) : null;
-    const inicioReparo = formData.horaInicioReparo ? new Date(formData.horaInicioReparo) : null;
-    const fimReparo = formData.horaFimReparo ? new Date(formData.horaFimReparo) : null;
-
-    const tempoParadaTotal = volta ? differenceInMinutes(volta, quebra) : 0;
-    const tempoReparoEfetivo = (inicioReparo && fimReparo) ? differenceInMinutes(fimReparo, inicioReparo) : 0;
-
-    return { tempoParadaTotal, tempoReparoEfetivo };
-  };
-
-  const handleSave = () => {
-    if (!formData.titulo || !formData.descricao || !formData.maquinaId || !formData.requisitanteId || !formData.setorId || !formData.tecnicoResponsavelId) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const maquina = maquinas.find(m => m.id === formData.maquinaId);
-    const requisitante = requisitantes.find(r => r.id === formData.requisitanteId);
-    const setor = setores.find(s => s.id === formData.setorId);
-    const tecnico = tecnicos.find(t => t.id === formData.tecnicoResponsavelId);
-    const { tempoParadaTotal, tempoReparoEfetivo } = calcularTempos();
-    
-    if (editingOrdem) {
-      // Atualizar ordem existente
-      const ordemAtualizada: Partial<OrdemServico> = {
-        titulo: formData.titulo,
-        descricao: formData.descricao,
-        maquinaId: formData.maquinaId,
-        maquinaNome: maquina?.nome || '',
-        requisitanteId: formData.requisitanteId,
-        requisitanteNome: requisitante?.nome || '',
-        setorId: formData.setorId,
-        setorNome: setor?.nome || '',
-        prioridade: formData.prioridade,
-        tecnicoResponsavelId: formData.tecnicoResponsavelId,
-        tecnicoResponsavelNome: tecnico?.nome || '',
-        dataInicio: formData.dataInicio?.toISOString(),
-        horaQuebra: formData.horaQuebra || undefined,
-        horaInicioReparo: formData.horaInicioReparo || undefined,
-        horaFimReparo: formData.horaFimReparo || undefined,
-        horaVoltaOperacao: formData.horaVoltaOperacao || undefined,
-        tempoParadaTotal,
-        tempoReparoEfetivo,
-        observacoes: formData.observacoes,
-      };
-
-      updateOrdem(editingOrdem.id, ordemAtualizada);
-      
-      // Criar/atualizar tempo de parada
-      const ordemCompleta = { ...editingOrdem, ...ordemAtualizada } as OrdemServico;
-      criarTempoParada(ordemCompleta);
-      
-      toast({
-        title: "Sucesso",
-        description: "Ordem de serviço atualizada com sucesso!",
-      });
-    } else {
-      // Criar nova ordem
-      const novaOrdem: OrdemServico = {
-        id: Date.now().toString(),
-        numeroRastreio: gerarNumeroRastreio(),
-        titulo: formData.titulo,
-        descricao: formData.descricao,
-        maquinaId: formData.maquinaId,
-        maquinaNome: maquina?.nome || '',
-        requisitanteId: formData.requisitanteId,
-        requisitanteNome: requisitante?.nome || '',
-        setorId: formData.setorId,
-        setorNome: setor?.nome || '',
-        prioridade: formData.prioridade,
-        status: 'aberta',
-        tecnicoResponsavelId: formData.tecnicoResponsavelId,
-        tecnicoResponsavelNome: tecnico?.nome || '',
-        dataAbertura: new Date().toISOString(),
-        dataInicio: formData.dataInicio?.toISOString(),
-        horaQuebra: formData.horaQuebra || undefined,
-        horaInicioReparo: formData.horaInicioReparo || undefined,
-        horaFimReparo: formData.horaFimReparo || undefined,
-        horaVoltaOperacao: formData.horaVoltaOperacao || undefined,
-        tempoParadaTotal,
-        tempoReparoEfetivo,
-        observacoes: formData.observacoes,
-        criadoPor: user?.name || '',
-      };
-
-      addOrdem(novaOrdem);
-      
-      // Criar tempo de parada automaticamente
-      criarTempoParada(novaOrdem);
-      
-      toast({
-        title: "Sucesso",
-        description: `Ordem de serviço ${novaOrdem.numeroRastreio} criada com sucesso!`,
-      });
-    }
-
-    resetForm();
-  };
-
   const handleEdit = (ordem: OrdemServico) => {
     setEditingOrdem(ordem);
-    setFormData({
-      titulo: ordem.titulo,
-      descricao: ordem.descricao,
-      maquinaId: ordem.maquinaId,
-      requisitanteId: ordem.requisitanteId || '',
-      setorId: ordem.setorId || '',
-      prioridade: ordem.prioridade,
-      tecnicoResponsavelId: ordem.tecnicoResponsavelId || '',
-      dataInicio: ordem.dataInicio ? new Date(ordem.dataInicio) : null,
-      horaQuebra: ordem.horaQuebra || '',
-      horaInicioReparo: ordem.horaInicioReparo || '',
-      horaFimReparo: ordem.horaFimReparo || '',
-      horaVoltaOperacao: ordem.horaVoltaOperacao || '',
-      observacoes: ordem.observacoes || '',
-    });
-    setShowForm(true);
+    setDialogOpen(true);
   };
+
+  const handleCreate = () => {
+    setEditingOrdem(null);
+    setDialogOpen(true);
+  };
+
 
   const filteredOrdens = ordens.filter(ordem =>
     ordem.numeroRastreio.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -308,7 +113,7 @@ export default function OrdensServico() {
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold tracking-tight">Ordens de Serviço</h2>
         {canCreate && (
-          <Button onClick={() => setShowForm(true)}>
+          <Button onClick={handleCreate}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Ordem
           </Button>
@@ -326,244 +131,13 @@ export default function OrdensServico() {
         />
       </div>
 
-      {/* Formulário */}
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {editingOrdem ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="titulo">Título *</Label>
-                <Input
-                  id="titulo"
-                  value={formData.titulo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, titulo: e.target.value }))}
-                  placeholder="Título da ordem de serviço"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="maquina">Máquina *</Label>
-                <Select value={formData.maquinaId} onValueChange={(value) => setFormData(prev => ({ ...prev, maquinaId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a máquina" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {maquinas.map(maquina => (
-                      <SelectItem key={maquina.id} value={maquina.id}>
-                        {maquina.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="descricao">Descrição *</Label>
-              <Textarea
-                id="descricao"
-                value={formData.descricao}
-                onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
-                placeholder="Descrição detalhada do problema ou serviço"
-                rows={3}
-              />
-            </div>
-
-            {/* Novos campos obrigatórios */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="requisitante">Requisitante *</Label>
-                <Select value={formData.requisitanteId} onValueChange={(value) => setFormData(prev => ({ ...prev, requisitanteId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o requisitante" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {requisitantes.map(requisitante => (
-                      <SelectItem key={requisitante.id} value={requisitante.id}>
-                        {requisitante.nome} ({requisitante.setor})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="setor">Setor *</Label>
-                <Select value={formData.setorId} onValueChange={(value) => setFormData(prev => ({ ...prev, setorId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o setor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {setores.map(setor => (
-                      <SelectItem key={setor.id} value={setor.id}>
-                        {setor.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="prioridade">Prioridade</Label>
-                <Select value={formData.prioridade} onValueChange={(value: any) => setFormData(prev => ({ ...prev, prioridade: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="baixa">Baixa</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
-                    <SelectItem value="alta">Alta</SelectItem>
-                    <SelectItem value="critica">Crítica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="tecnico">Técnico Responsável *</Label>
-                <Select value={formData.tecnicoResponsavelId} onValueChange={(value) => setFormData(prev => ({ ...prev, tecnicoResponsavelId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o técnico" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tecnicos.map(tecnico => (
-                      <SelectItem key={tecnico.id} value={tecnico.id}>
-                        {tecnico.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Data de Início Prevista</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.dataInicio && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.dataInicio ? (
-                        format(formData.dataInicio, "PPP", { locale: ptBR })
-                      ) : (
-                        "Selecione uma data"
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={formData.dataInicio || undefined}
-                      onSelect={(date) => setFormData(prev => ({ ...prev, dataInicio: date || null }))}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
-            {/* Seção de Tempos de Parada para Métricas */}
-            <div className="border-t pt-4 mt-4">
-              <div className="flex items-center space-x-2 mb-4">
-                <Clock className="h-4 w-4" />
-                <Label className="text-base font-semibold">Tempos de Parada (Para Métricas MTTR/MTBF)</Label>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="horaQuebra">Hora da Quebra/Problema</Label>
-                  <Input
-                    id="horaQuebra"
-                    type="datetime-local"
-                    value={formData.horaQuebra}
-                    onChange={(e) => setFormData(prev => ({ ...prev, horaQuebra: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="horaInicioReparo">Hora Início do Reparo</Label>
-                  <Input
-                    id="horaInicioReparo"
-                    type="datetime-local"
-                    value={formData.horaInicioReparo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, horaInicioReparo: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="horaFimReparo">Hora Fim do Reparo</Label>
-                  <Input
-                    id="horaFimReparo"
-                    type="datetime-local"
-                    value={formData.horaFimReparo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, horaFimReparo: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="horaVoltaOperacao">Hora Volta à Operação</Label>
-                  <Input
-                    id="horaVoltaOperacao"
-                    type="datetime-local"
-                    value={formData.horaVoltaOperacao}
-                    onChange={(e) => setFormData(prev => ({ ...prev, horaVoltaOperacao: e.target.value }))}
-                  />
-                </div>
-              </div>
-              
-              {/* Exibir tempos calculados */}
-              {formData.horaQuebra && (
-                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium mb-2">Tempos Calculados:</p>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Tempo Parada Total:</span>{' '}
-                      {calcularTempos().tempoParadaTotal > 0 ? `${Math.floor(calcularTempos().tempoParadaTotal / 60)}h ${calcularTempos().tempoParadaTotal % 60}min` : '--'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Tempo Reparo Efetivo:</span>{' '}
-                      {calcularTempos().tempoReparoEfetivo > 0 ? `${Math.floor(calcularTempos().tempoReparoEfetivo / 60)}h ${calcularTempos().tempoReparoEfetivo % 60}min` : '--'}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="observacoes">Observações</Label>
-              <Textarea
-                id="observacoes"
-                value={formData.observacoes}
-                onChange={(e) => setFormData(prev => ({ ...prev, observacoes: e.target.value }))}
-                placeholder="Observações adicionais"
-                rows={2}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={resetForm}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSave}>
-                {editingOrdem ? 'Atualizar' : 'Salvar'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Dialog de Ordem de Serviço */}
+      <OrdemServicoDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        ordem={editingOrdem || undefined}
+        mode={editingOrdem ? "edit" : "create"}
+      />
 
       {/* Lista de Ordens */}
       <div className="space-y-4">
