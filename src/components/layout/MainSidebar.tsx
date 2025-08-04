@@ -45,11 +45,6 @@ const menuItems = [
     icon: Wrench,
   },
   {
-    title: "Setores",
-    url: "/setores",
-    icon: Building2,
-  },
-  {
     title: "Tempos de Parada",
     url: "/paradas",
     icon: Timer,

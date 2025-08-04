@@ -24,10 +24,29 @@ interface Tecnico {
   id: string;
   nome: string;
   especialidade: string;
-  nivel: string;
+  turno: string;
+  valorHora: number;
   horasTrabalhadasMes: number;
   ordensCompletas: number;
   status: "Ativo" | "Inativo" | "Férias";
+}
+
+interface Turno {
+  id: string;
+  nome: string;
+  horaInicio: string;
+  horaFim: string;
+  diasSemana: string[];
+  criadoEm: string;
+  criadoPor: string;
+}
+
+interface Especialidade {
+  id: string;
+  nome: string;
+  valorHora: number;
+  criadoEm: string;
+  criadoPor: string;
 }
 
 interface DataContextType {
@@ -58,6 +77,20 @@ interface DataContextType {
   updateTecnico: (id: string, tecnico: Partial<Tecnico>) => void;
   deleteTecnico: (id: string) => void;
   
+  // Turnos
+  turnos: Turno[];
+  setTurnos: (turnos: Turno[]) => void;
+  addTurno: (turno: Turno) => void;
+  updateTurno: (id: string, turno: Partial<Turno>) => void;
+  deleteTurno: (id: string) => void;
+  
+  // Especialidades
+  especialidades: Especialidade[];
+  setEspecialidades: (especialidades: Especialidade[]) => void;
+  addEspecialidade: (especialidade: Especialidade) => void;
+  updateEspecialidade: (id: string, especialidade: Partial<Especialidade>) => void;
+  deleteEspecialidade: (id: string) => void;
+  
   // Requisitantes
   requisitantes: Requisitante[];
   setRequisitantes: (requisitantes: Requisitante[]) => void;
@@ -77,6 +110,9 @@ interface DataContextType {
   addTipoEquipamento: (tipo: TipoEquipamento) => void;
   updateTipoEquipamento: (id: string, tipo: Partial<TipoEquipamento>) => void;
   deleteTipoEquipamento: (id: string) => void;
+  
+  // Setores fabris
+  setoresFabris: string[];
   
   // Método para sincronizar tudo
   refreshData: () => void;
@@ -119,13 +155,77 @@ export const setoresRequisitantes = [
   "Vendas"
 ];
 
+// Dados iniciais dos turnos
+const turnosIniciais: Turno[] = [
+  {
+    id: "1",
+    nome: "Primeiro Turno",
+    horaInicio: "06:00",
+    horaFim: "14:00",
+    diasSemana: ["segunda", "terça", "quarta", "quinta", "sexta"],
+    criadoEm: new Date().toISOString(),
+    criadoPor: "Sistema"
+  },
+  {
+    id: "2", 
+    nome: "Segundo Turno",
+    horaInicio: "14:00",
+    horaFim: "22:00", 
+    diasSemana: ["segunda", "terça", "quarta", "quinta", "sexta"],
+    criadoEm: new Date().toISOString(),
+    criadoPor: "Sistema"
+  },
+  {
+    id: "3",
+    nome: "Terceiro Turno",
+    horaInicio: "22:00",
+    horaFim: "06:00",
+    diasSemana: ["segunda", "terça", "quarta", "quinta", "sexta"],
+    criadoEm: new Date().toISOString(),
+    criadoPor: "Sistema"
+  }
+];
+
+// Dados iniciais das especialidades
+const especialidadesIniciais: Especialidade[] = [
+  {
+    id: "1",
+    nome: "Mecânica",
+    valorHora: 25.00,
+    criadoEm: new Date().toISOString(),
+    criadoPor: "Sistema"
+  },
+  {
+    id: "2",
+    nome: "Elétrica", 
+    valorHora: 30.00,
+    criadoEm: new Date().toISOString(),
+    criadoPor: "Sistema"
+  },
+  {
+    id: "3",
+    nome: "Hidráulica",
+    valorHora: 22.00,
+    criadoEm: new Date().toISOString(),
+    criadoPor: "Sistema"
+  },
+  {
+    id: "4",
+    nome: "Soldagem",
+    valorHora: 35.00,
+    criadoEm: new Date().toISOString(),
+    criadoPor: "Sistema"
+  }
+];
+
 // Dados iniciais dos técnicos
 const tecnicosIniciais: Tecnico[] = [
   {
     id: "1",
     nome: "João Silva",
     especialidade: "Mecânica",
-    nivel: "Sênior",
+    turno: "Primeiro Turno",
+    valorHora: 25.00,
     horasTrabalhadasMes: 168,
     ordensCompletas: 0,
     status: "Ativo"
@@ -134,7 +234,8 @@ const tecnicosIniciais: Tecnico[] = [
     id: "2",
     nome: "Maria Santos",
     especialidade: "Elétrica",
-    nivel: "Pleno",
+    turno: "Segundo Turno",
+    valorHora: 30.00,
     horasTrabalhadasMes: 160,
     ordensCompletas: 0,
     status: "Ativo"
@@ -143,7 +244,8 @@ const tecnicosIniciais: Tecnico[] = [
     id: "3",
     nome: "Carlos Lima",
     especialidade: "Hidráulica",
-    nivel: "Júnior",
+    turno: "Primeiro Turno",
+    valorHora: 22.00,
     horasTrabalhadasMes: 155,
     ordensCompletas: 0,
     status: "Férias"
@@ -152,7 +254,8 @@ const tecnicosIniciais: Tecnico[] = [
     id: "4",
     nome: "Ana Costa",
     especialidade: "Soldagem",
-    nivel: "Sênior",
+    turno: "Terceiro Turno",
+    valorHora: 35.00,
     horasTrabalhadasMes: 172,
     ordensCompletas: 0,
     status: "Ativo"
@@ -167,6 +270,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [requisitantes, setRequisitantesState] = useState<Requisitante[]>([]);
   const [setores, setSetoresState] = useState<Setor[]>([]);
   const [tiposEquipamento, setTiposEquipamentoState] = useState<TipoEquipamento[]>([]);
+  const [turnos, setTurnosState] = useState<Turno[]>(turnosIniciais);
+  const [especialidades, setEspecialidadesState] = useState<Especialidade[]>(especialidadesIniciais);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -180,6 +285,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const requisitantesCarregados = loadRequisitantes();
     const setoresCarregados = loadSetores();
     const tiposCarregados = JSON.parse(localStorage.getItem('tiposEquipamento') || '[]');
+    const turnosCarregados = JSON.parse(localStorage.getItem('turnos') || '[]');
+    const especialidadesCarregadas = JSON.parse(localStorage.getItem('especialidades') || '[]');
 
     setOrdensState(ordensCarregadas);
     setMaquinasState(maquinasCarregadas);
@@ -187,6 +294,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setRequisitantesState(requisitantesCarregados);
     setSetoresState(setoresCarregados);
     setTiposEquipamentoState(tiposCarregados);
+    setTurnosState(turnosCarregados.length > 0 ? turnosCarregados : turnosIniciais);
+    setEspecialidadesState(especialidadesCarregadas.length > 0 ? especialidadesCarregadas : especialidadesIniciais);
 
     // Atualizar contador de ordens dos técnicos
     const ordensCountPorTecnico = ordensCarregadas.reduce((acc: Record<string, number>, ordem) => {
@@ -355,6 +464,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setTiposEquipamento(novosTipos);
   };
 
+  // Funções para Turnos
+  const setTurnos = (novosTurnos: Turno[]) => {
+    setTurnosState(novosTurnos);
+    localStorage.setItem('turnos', JSON.stringify(novosTurnos));
+  };
+
+  const addTurno = (turno: Turno) => {
+    const novosTurnos = [...turnos, turno];
+    setTurnos(novosTurnos);
+  };
+
+  const updateTurno = (id: string, turnoUpdate: Partial<Turno>) => {
+    const novosTurnos = turnos.map(turno => 
+      turno.id === id ? { ...turno, ...turnoUpdate } : turno
+    );
+    setTurnos(novosTurnos);
+  };
+
+  const deleteTurno = (id: string) => {
+    const novosTurnos = turnos.filter(turno => turno.id !== id);
+    setTurnos(novosTurnos);
+  };
+
+  // Funções para Especialidades
+  const setEspecialidades = (novasEspecialidades: Especialidade[]) => {
+    setEspecialidadesState(novasEspecialidades);
+    localStorage.setItem('especialidades', JSON.stringify(novasEspecialidades));
+  };
+
+  const addEspecialidade = (especialidade: Especialidade) => {
+    const novasEspecialidades = [...especialidades, especialidade];
+    setEspecialidades(novasEspecialidades);
+  };
+
+  const updateEspecialidade = (id: string, especialidadeUpdate: Partial<Especialidade>) => {
+    const novasEspecialidades = especialidades.map(especialidade => 
+      especialidade.id === id ? { ...especialidade, ...especialidadeUpdate } : especialidade
+    );
+    setEspecialidades(novasEspecialidades);
+  };
+
+  const deleteEspecialidade = (id: string) => {
+    const novasEspecialidades = especialidades.filter(especialidade => especialidade.id !== id);
+    setEspecialidades(novasEspecialidades);
+  };
+
   const value: DataContextType = {
     ordens, setOrdens, addOrdem, updateOrdem, deleteOrdem,
     maquinas, setMaquinas, addMaquina, updateMaquina,
@@ -363,6 +518,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     requisitantes, setRequisitantes, addRequisitante, updateRequisitante,
     setores, setSetores, addSetor, updateSetor, deleteSetor,
     tiposEquipamento, setTiposEquipamento, addTipoEquipamento, updateTipoEquipamento, deleteTipoEquipamento,
+    turnos, setTurnos, addTurno, updateTurno, deleteTurno,
+    especialidades, setEspecialidades, addEspecialidade, updateEspecialidade, deleteEspecialidade,
+    setoresFabris,
     refreshData
   };
 
