@@ -49,6 +49,7 @@ interface DataContextType {
   setTemposParada: (tempos: TempoParada[]) => void;
   addTempoParada: (tempo: TempoParada) => void;
   updateTempoParada: (id: string, tempo: Partial<TempoParada>) => void;
+  deleteTempoParada: (id: string) => void;
   
   // Técnicos
   tecnicos: Tecnico[];
@@ -263,6 +264,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setTemposParada(novosTempos);
   };
 
+  const deleteTempoParada = (id: string) => {
+    const novosTempos = temposParada.filter(tempo => tempo.id !== id);
+    setTemposParada(novosTempos);
+  };
+
   // Funções para Técnicos
   const setTecnicos = (novosTecnicos: Tecnico[]) => {
     setTecnicosState(novosTecnicos);
@@ -352,7 +358,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value: DataContextType = {
     ordens, setOrdens, addOrdem, updateOrdem, deleteOrdem,
     maquinas, setMaquinas, addMaquina, updateMaquina,
-    temposParada, setTemposParada, addTempoParada, updateTempoParada,
+    temposParada, setTemposParada, addTempoParada, updateTempoParada, deleteTempoParada,
     tecnicos, setTecnicos, addTecnico, updateTecnico, deleteTecnico,
     requisitantes, setRequisitantes, addRequisitante, updateRequisitante,
     setores, setSetores, addSetor, updateSetor, deleteSetor,

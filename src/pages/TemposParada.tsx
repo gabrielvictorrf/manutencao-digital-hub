@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit, Clock } from 'lucide-react';
+import { Plus, Search, Edit, Clock, Trash2 } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -50,7 +50,7 @@ const motivosParada = [
 export default function TemposParada() {
   const { canEdit } = useAuth();
   const { toast } = useToast();
-  const { temposParada, updateTempoParada } = useData();
+  const { temposParada, updateTempoParada, deleteTempoParada } = useData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTempo, setEditingTempo] = useState<TempoParada | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,6 +95,16 @@ export default function TemposParada() {
       title: "Sucesso",
       description: "Parada finalizada com sucesso!",
     });
+  };
+
+  const handleDelete = (tempo: TempoParada) => {
+    if (confirm(`Tem certeza que deseja excluir este tempo de parada?`)) {
+      deleteTempoParada(tempo.id);
+      toast({
+        title: "Sucesso",
+        description: "Tempo de parada excluído com sucesso!",
+      });
+    }
   };
 
   const filteredTempos = temposParada.filter(tempo =>
@@ -227,6 +237,15 @@ export default function TemposParada() {
                       onClick={() => handleEdit(tempo)}
                     >
                       <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(tempo)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
                 </div>

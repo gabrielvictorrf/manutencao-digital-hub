@@ -49,7 +49,7 @@ export default function Setores() {
       };
       addSetor(novoSetor);
     });
-  }, []);
+  }, [setores, addSetor]);
 
   const handleNovoSetor = () => {
     setEditingSetor(null);
