@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,7 +20,9 @@ import {
   Settings,
   User,
   Search,
-  CalendarIcon
+  CalendarIcon,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -44,6 +47,7 @@ export default function Dashboard() {
   const [dataInicio3, setDataInicio3] = useState<Date | undefined>();
   const [dataFim3, setDataFim3] = useState<Date | undefined>();
   const [equipamentoSelecionado, setEquipamentoSelecionado] = useState<string>('');
+  const [openEquipamento, setOpenEquipamento] = useState(false);
 
   // Função para filtrar ordens por período
   const filtrarOrdensPorPeriodo = (ordens: OrdemServico[], inicio?: Date, fim?: Date) => {
@@ -187,6 +191,18 @@ export default function Dashboard() {
     ? ordensFiltradas3.filter(o => o.maquinaId === equipamentoSelecionado)
     : [];
 
+  // Calcular número de dias no período filtrado
+  const calcularDiasPeriodo = () => {
+    if (!dataInicio3 && !dataFim3) return 30; // Assume 30 dias se não há filtro
+    if (dataInicio3 && dataFim3) {
+      const diffTime = Math.abs(dataFim3.getTime() - dataInicio3.getTime());
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
+    return 30; // Default para um mês
+  };
+
+  const diasPeriodo = calcularDiasPeriodo();
+
   // Calcular métricas do equipamento selecionado
   const ordensConcluídasEquipamento = ordensDoEquipamento.filter(o => o.status === 'concluida');
   const ordensComTempoEquipamento = ordensConcluídasEquipamento.filter(o => o.tempoReparoEfetivo && o.tempoReparoEfetivo > 0);
@@ -197,18 +213,22 @@ export default function Dashboard() {
 
   const paradasEquipamento = ordensDoEquipamento.filter(o => o.tempoParadaTotal && o.tempoParadaTotal > 0).length;
   
-  const mtbfEquipamento = ordensConcluídasEquipamento.length > 1 
-    ? (720 / ordensConcluídasEquipamento.length).toFixed(0) // 720 horas por mês
-    : '0';
-
+  // MTBF baseado no período e horas de operação da máquina
   const equipamentoSelecionadoData = maquinas.find(m => m.id === equipamentoSelecionado);
+  const horasOperacaoMaquina = equipamentoSelecionadoData?.horasOperacao || 720; // Horas por mês cadastradas
+  const horasOperacaoPeriodo = (horasOperacaoMaquina / 30) * diasPeriodo; // Proporcional ao período
+  
+  const mtbfEquipamento = ordensConcluídasEquipamento.length > 0 
+    ? (horasOperacaoPeriodo / ordensConcluídasEquipamento.length).toFixed(0)
+    : horasOperacaoPeriodo.toFixed(0);
+
   const disponibilidadeEquipamento = equipamentoSelecionadoData 
     ? (equipamentoSelecionadoData.status === 'operacional' ? '100' : '0')
     : '0';
 
-  const horasOperantesEquipamento = ordensConcluídasEquipamento.length > 0 
-    ? (720 - (ordensComTempoEquipamento.reduce((acc, ordem) => acc + (ordem.tempoParadaTotal || 0), 0) / 60)).toFixed(0)
-    : '720';
+  // Horas operantes = Horas de operação do período - tempo total de parada (em horas)
+  const tempoTotalParadaHoras = ordensDoEquipamento.reduce((acc, ordem) => acc + ((ordem.tempoParadaTotal || 0) / 60), 0);
+  const horasOperantesEquipamento = (horasOperacaoPeriodo - tempoTotalParadaHoras).toFixed(1);
 
   const OrdemCard = ({ ordem }: { ordem: OrdemServico }) => {
     const isUrgent = ordem.prioridade === 'critica';
@@ -605,21 +625,49 @@ export default function Dashboard() {
           </CardDescription>
           <div className="flex items-center space-x-4 mt-4">
             <span className="font-medium">Equipamento:</span>
-            <Select 
-              value={equipamentoSelecionado} 
-              onValueChange={setEquipamentoSelecionado}
-            >
-              <SelectTrigger className="w-[300px]">
-                <SelectValue placeholder="Selecione um equipamento" />
-              </SelectTrigger>
-              <SelectContent>
-                {maquinas.map((maquina) => (
-                  <SelectItem key={maquina.id} value={maquina.id}>
-                    {maquina.nome} - {maquina.localizacao}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={openEquipamento} onOpenChange={setOpenEquipamento}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openEquipamento}
+                  className="w-[300px] justify-between"
+                >
+                  {equipamentoSelecionado
+                    ? maquinas.find((maquina) => maquina.id === equipamentoSelecionado)?.nome
+                    : "Selecione um equipamento..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0">
+                <Command>
+                  <CommandInput placeholder="Pesquisar equipamento..." />
+                  <CommandList>
+                    <CommandEmpty>Nenhum equipamento encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {maquinas.map((maquina) => (
+                        <CommandItem
+                          key={maquina.id}
+                          value={maquina.nome}
+                          onSelect={() => {
+                            setEquipamentoSelecionado(maquina.id);
+                            setOpenEquipamento(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              equipamentoSelecionado === maquina.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {maquina.nome} - {maquina.localizacao}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             {equipamentoSelecionado && (
               <Button
                 variant="ghost"
