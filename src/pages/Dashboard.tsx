@@ -39,6 +39,11 @@ export default function Dashboard() {
   const [dataFim1, setDataFim1] = useState<Date | undefined>();
   const [dataInicio2, setDataInicio2] = useState<Date | undefined>();
   const [dataFim2, setDataFim2] = useState<Date | undefined>();
+  
+  // Estados para indicadores por equipamento
+  const [dataInicio3, setDataInicio3] = useState<Date | undefined>();
+  const [dataFim3, setDataFim3] = useState<Date | undefined>();
+  const [equipamentoSelecionado, setEquipamentoSelecionado] = useState<string>('');
 
   // Função para filtrar ordens por período
   const filtrarOrdensPorPeriodo = (ordens: OrdemServico[], inicio?: Date, fim?: Date) => {
@@ -175,6 +180,35 @@ export default function Dashboard() {
     acc[tecnico.especialidade] += ordensDoTecnico.length;
     return acc;
   }, {});
+
+  // Indicadores por equipamento (com filtro 3)
+  const ordensFiltradas3 = filtrarOrdensPorPeriodo(ordens, dataInicio3, dataFim3);
+  const ordensDoEquipamento = equipamentoSelecionado 
+    ? ordensFiltradas3.filter(o => o.maquinaId === equipamentoSelecionado)
+    : [];
+
+  // Calcular métricas do equipamento selecionado
+  const ordensConcluídasEquipamento = ordensDoEquipamento.filter(o => o.status === 'concluida');
+  const ordensComTempoEquipamento = ordensConcluídasEquipamento.filter(o => o.tempoReparoEfetivo && o.tempoReparoEfetivo > 0);
+  
+  const mttrEquipamento = ordensComTempoEquipamento.length > 0 
+    ? (ordensComTempoEquipamento.reduce((acc, ordem) => acc + (ordem.tempoReparoEfetivo || 0), 0) / ordensComTempoEquipamento.length / 60).toFixed(1)
+    : '0';
+
+  const paradasEquipamento = ordensDoEquipamento.filter(o => o.tempoParadaTotal && o.tempoParadaTotal > 0).length;
+  
+  const mtbfEquipamento = ordensConcluídasEquipamento.length > 1 
+    ? (720 / ordensConcluídasEquipamento.length).toFixed(0) // 720 horas por mês
+    : '0';
+
+  const equipamentoSelecionadoData = maquinas.find(m => m.id === equipamentoSelecionado);
+  const disponibilidadeEquipamento = equipamentoSelecionadoData 
+    ? (equipamentoSelecionadoData.status === 'operacional' ? '100' : '0')
+    : '0';
+
+  const horasOperantesEquipamento = ordensConcluídasEquipamento.length > 0 
+    ? (720 - (ordensComTempoEquipamento.reduce((acc, ordem) => acc + (ordem.tempoParadaTotal || 0), 0) / 60)).toFixed(0)
+    : '720';
 
   const OrdemCard = ({ ordem }: { ordem: OrdemServico }) => {
     const isUrgent = ordem.prioridade === 'critica';
@@ -344,17 +378,16 @@ export default function Dashboard() {
       {/* Filtro de Data para Ordens e Métricas */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Filtros - Ordens de Serviço e Métricas</CardTitle>
-              <CardDescription>Filtre os dados das ordens de serviço e indicadores por período</CardDescription>
+          <div className="flex items-center justify-center">
+            <div className="flex items-center space-x-4">
+              <span className="font-medium">Filtrar por data:</span>
+              <DateRangePicker
+                startDate={dataInicio1}
+                endDate={dataFim1}
+                onStartDateChange={setDataInicio1}
+                onEndDateChange={setDataFim1}
+              />
             </div>
-            <DateRangePicker
-              startDate={dataInicio1}
-              endDate={dataFim1}
-              onStartDateChange={setDataInicio1}
-              onEndDateChange={setDataFim1}
-            />
           </div>
         </CardHeader>
       </Card>
@@ -472,17 +505,16 @@ export default function Dashboard() {
       {/* Filtro de Data para Colaboradores e Setores */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Filtros - Profissionais e Setores</CardTitle>
-              <CardDescription>Filtre os dados de profissionais e setores por período</CardDescription>
+          <div className="flex items-center justify-center">
+            <div className="flex items-center space-x-4">
+              <span className="font-medium">Filtrar por data:</span>
+              <DateRangePicker
+                startDate={dataInicio2}
+                endDate={dataFim2}
+                onStartDateChange={setDataInicio2}
+                onEndDateChange={setDataFim2}
+              />
             </div>
-            <DateRangePicker
-              startDate={dataInicio2}
-              endDate={dataFim2}
-              onStartDateChange={setDataInicio2}
-              onEndDateChange={setDataFim2}
-            />
           </div>
         </CardHeader>
       </Card>
@@ -546,6 +578,129 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Filtro de Data para Indicadores por Equipamento */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-center">
+            <div className="flex items-center space-x-4">
+              <span className="font-medium">Filtrar por data:</span>
+              <DateRangePicker
+                startDate={dataInicio3}
+                endDate={dataFim3}
+                onStartDateChange={setDataInicio3}
+                onEndDateChange={setDataFim3}
+              />
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Indicadores por Equipamento */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Indicadores por Equipamento</CardTitle>
+          <CardDescription>
+            Métricas específicas de um equipamento selecionado
+          </CardDescription>
+          <div className="flex items-center space-x-4 mt-4">
+            <span className="font-medium">Equipamento:</span>
+            <Select 
+              value={equipamentoSelecionado} 
+              onValueChange={setEquipamentoSelecionado}
+            >
+              <SelectTrigger className="w-[300px]">
+                <SelectValue placeholder="Selecione um equipamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Nenhum equipamento selecionado</SelectItem>
+                {maquinas.map((maquina) => (
+                  <SelectItem key={maquina.id} value={maquina.id}>
+                    {maquina.nome} - {maquina.localizacao}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {equipamentoSelecionado && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEquipamentoSelecionado('');
+                  setDataInicio3(undefined);
+                  setDataFim3(undefined);
+                }}
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {equipamentoSelecionado ? (
+            <div className="grid gap-4 md:grid-cols-5">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">MTTR</CardTitle>
+                  <Timer className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{mttrEquipamento}h</div>
+                  <p className="text-xs text-muted-foreground">tempo reparo</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">MTBF</CardTitle>
+                  <Wrench className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{mtbfEquipamento}h</div>
+                  <p className="text-xs text-muted-foreground">entre falhas</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Paradas</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{paradasEquipamento}</div>
+                  <p className="text-xs text-muted-foreground">no período</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Disponibilidade</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{disponibilidadeEquipamento}%</div>
+                  <p className="text-xs text-muted-foreground">atual</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Horas Operantes</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{horasOperantesEquipamento}h</div>
+                  <p className="text-xs text-muted-foreground">no período</p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Selecione um equipamento para visualizar os indicadores</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Kanban das Ordens */}
       <div className="grid gap-6 md:grid-cols-3">
