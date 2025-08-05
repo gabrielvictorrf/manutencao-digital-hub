@@ -613,7 +613,6 @@ export default function Dashboard() {
                 <SelectValue placeholder="Selecione um equipamento" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum equipamento selecionado</SelectItem>
                 {maquinas.map((maquina) => (
                   <SelectItem key={maquina.id} value={maquina.id}>
                     {maquina.nome} - {maquina.localizacao}
