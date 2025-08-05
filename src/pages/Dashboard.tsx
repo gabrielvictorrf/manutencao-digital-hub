@@ -3,6 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   Users, 
   ClipboardList, 
@@ -15,19 +18,47 @@ import {
   Clock,
   Settings,
   User,
-  Search
+  Search,
+  CalendarIcon
 } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { OrdemServico } from '@/pages/OrdensServico';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, isAfter, isBefore, isEqual, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
   const { user, canEdit } = useAuth();
   const { toast } = useToast();
   const { ordens, maquinas, temposParada, updateOrdem, tecnicos } = useData();
+
+  // Estados para filtros de data
+  const [dataInicio1, setDataInicio1] = useState<Date | undefined>();
+  const [dataFim1, setDataFim1] = useState<Date | undefined>();
+  const [dataInicio2, setDataInicio2] = useState<Date | undefined>();
+  const [dataFim2, setDataFim2] = useState<Date | undefined>();
+
+  // Função para filtrar ordens por período
+  const filtrarOrdensPorPeriodo = (ordens: OrdemServico[], inicio?: Date, fim?: Date) => {
+    if (!inicio && !fim) return ordens;
+    
+    return ordens.filter(ordem => {
+      const dataOrdem = parseISO(ordem.dataAbertura);
+      const dataComparacao = startOfDay(dataOrdem);
+      
+      if (inicio && fim) {
+        return (isEqual(dataComparacao, startOfDay(inicio)) || isAfter(dataComparacao, startOfDay(inicio))) &&
+               (isEqual(dataComparacao, startOfDay(fim)) || isBefore(dataComparacao, endOfDay(fim)));
+      } else if (inicio) {
+        return isEqual(dataComparacao, startOfDay(inicio)) || isAfter(dataComparacao, startOfDay(inicio));
+      } else if (fim) {
+        return isEqual(dataComparacao, startOfDay(fim)) || isBefore(dataComparacao, endOfDay(fim));
+      }
+      return true;
+    });
+  };
 
   const handleStatusChange = (ordemId: string, novoStatus: OrdemServico['status']) => {
     if (!canEdit) {
@@ -88,11 +119,12 @@ export default function Dashboard() {
     }
   };
 
-  // Calcular métricas em tempo real
-  const ordensAbertas = ordens.filter(o => o.status === 'aberta');
-  const ordensAndamento = ordens.filter(o => o.status === 'em_andamento');
-  const ordensConcluidas = ordens.filter(o => o.status === 'concluida');
-  const ordensCriticas = ordens.filter(o => o.prioridade === 'critica');
+  // Calcular métricas em tempo real com filtro 1
+  const ordensFiltradas1 = filtrarOrdensPorPeriodo(ordens, dataInicio1, dataFim1);
+  const ordensAbertas = ordensFiltradas1.filter(o => o.status === 'aberta');
+  const ordensAndamento = ordensFiltradas1.filter(o => o.status === 'em_andamento');
+  const ordensConcluidas = ordensFiltradas1.filter(o => o.status === 'concluida');
+  const ordensCriticas = ordensFiltradas1.filter(o => o.prioridade === 'critica');
 
   // Calcular MTTR e MTBF baseado nos dados reais das ordens de serviço
   const ordensConcluídasComTempos = ordensConcluidas.filter(o => o.tempoReparoEfetivo && o.tempoReparoEfetivo > 0);
@@ -100,8 +132,8 @@ export default function Dashboard() {
     ? (ordensConcluídasComTempos.reduce((acc, ordem) => acc + (ordem.tempoReparoEfetivo || 0), 0) / ordensConcluídasComTempos.length / 60).toFixed(1)
     : '0';
 
-  // MTBF baseado no tempo entre falhas por máquina
-  const ordensComParada = ordens.filter(o => o.tempoParadaTotal && o.tempoParadaTotal > 0 && o.status === 'concluida');
+  // MTBF baseado no tempo entre falhas por máquina (com filtro 1)
+  const ordensComParada = ordensFiltradas1.filter(o => o.tempoParadaTotal && o.tempoParadaTotal > 0 && o.status === 'concluida');
   const maquinasComOrdens = [...new Set(ordensComParada.map(o => o.maquinaId))];
   
   let mtbfMedio = '0';
@@ -119,23 +151,28 @@ export default function Dashboard() {
     ? ((maquinasOperando / maquinas.length) * 100).toFixed(1)
     : 100;
 
-  // Top colaboradores por quantidade de ordens (usando dados reais dos técnicos)
+  // Top colaboradores por quantidade de ordens (com filtro 2)
+  const ordensFiltradas2 = filtrarOrdensPorPeriodo(ordens, dataInicio2, dataFim2);
   const topColaboradores = tecnicos
-    .map(tecnico => ({
-      nome: tecnico.nome,
-      ordens: tecnico.ordensCompletas,
-      especialidade: tecnico.especialidade,
-      status: tecnico.status
-    }))
+    .map(tecnico => {
+      const ordensDoTecnico = ordensFiltradas2.filter(o => o.tecnicoResponsavelNome === tecnico.nome && o.status === 'concluida');
+      return {
+        nome: tecnico.nome,
+        ordens: ordensDoTecnico.length,
+        especialidade: tecnico.especialidade,
+        status: tecnico.status
+      };
+    })
     .sort((a, b) => b.ordens - a.ordens)
     .slice(0, 5);
 
-  // Estatísticas por setor/especialidade (usando dados reais dos técnicos)
+  // Estatísticas por setor/especialidade (com filtro 2)
   const setoresStats = tecnicos.reduce((acc: Record<string, number>, tecnico) => {
+    const ordensDoTecnico = ordensFiltradas2.filter(o => o.tecnicoResponsavelNome === tecnico.nome && o.status === 'concluida');
     if (!acc[tecnico.especialidade]) {
       acc[tecnico.especialidade] = 0;
     }
-    acc[tecnico.especialidade] += tecnico.ordensCompletas;
+    acc[tecnico.especialidade] += ordensDoTecnico.length;
     return acc;
   }, {});
 
@@ -218,6 +255,83 @@ export default function Dashboard() {
     );
   };
 
+  const DateRangePicker = ({ 
+    startDate, 
+    endDate, 
+    onStartDateChange, 
+    onEndDateChange, 
+    placeholder = "Filtrar por período" 
+  }: {
+    startDate?: Date;
+    endDate?: Date;
+    onStartDateChange: (date?: Date) => void;
+    onEndDateChange: (date?: Date) => void;
+    placeholder?: string;
+  }) => (
+    <div className="flex items-center space-x-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              "w-[140px] justify-start text-left font-normal",
+              !startDate && "text-muted-foreground"
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {startDate ? format(startDate, "dd/MM/yy") : "Início"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={startDate}
+            onSelect={onStartDateChange}
+            initialFocus
+            className="p-3 pointer-events-auto"
+          />
+        </PopoverContent>
+      </Popover>
+      
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              "w-[140px] justify-start text-left font-normal",
+              !endDate && "text-muted-foreground"
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {endDate ? format(endDate, "dd/MM/yy") : "Fim"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={endDate}
+            onSelect={onEndDateChange}
+            initialFocus
+            className="p-3 pointer-events-auto"
+          />
+        </PopoverContent>
+      </Popover>
+      
+      {(startDate || endDate) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            onStartDateChange(undefined);
+            onEndDateChange(undefined);
+          }}
+        >
+          Limpar
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -226,6 +340,24 @@ export default function Dashboard() {
           Visão geral do sistema de manutenção
         </p>
       </div>
+
+      {/* Filtro de Data para Ordens e Métricas */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Filtros - Ordens de Serviço e Métricas</CardTitle>
+              <CardDescription>Filtre os dados das ordens de serviço e indicadores por período</CardDescription>
+            </div>
+            <DateRangePicker
+              startDate={dataInicio1}
+              endDate={dataFim1}
+              onStartDateChange={setDataInicio1}
+              onEndDateChange={setDataFim1}
+            />
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Status das Ordens - Cabeçalho */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -337,13 +469,31 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Filtro de Data para Colaboradores e Setores */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Filtros - Profissionais e Setores</CardTitle>
+              <CardDescription>Filtre os dados de profissionais e setores por período</CardDescription>
+            </div>
+            <DateRangePicker
+              startDate={dataInicio2}
+              endDate={dataFim2}
+              onStartDateChange={setDataInicio2}
+              onEndDateChange={setDataFim2}
+            />
+          </div>
+        </CardHeader>
+      </Card>
+
       {/* Colaboradores e Setores Mais Atuantes */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Top Colaboradores</CardTitle>
+            <CardTitle>Ordens de Serviço por Profissional</CardTitle>
             <CardDescription>
-              Técnicos com mais ordens de serviço
+              Profissionais com mais ordens de serviço concluídas
             </CardDescription>
           </CardHeader>
           <CardContent>
