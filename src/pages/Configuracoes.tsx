@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Key, Users, Shield } from "lucide-react";
 import { useData, setoresRequisitantes } from "@/contexts/DataContext";
+import { cleanupRequisitantesData, verificarIntegridadeDados } from "@/utils/dataCleanup";
 
 export default function Configuracoes() {
   const { user, users, createUser, updateUser, deleteUser, changePassword, canAdmin } = useAuth();
@@ -173,6 +174,19 @@ export default function Configuracoes() {
           variant: "destructive",
         });
       }
+    }
+  };
+
+  const handleCleanupData = () => {
+    if (window.confirm('Esta ação irá limpar dados antigos de requisitantes e padronizar o sistema para usar apenas os usuários cadastrados. Deseja continuar?')) {
+      const { ordens, updateOrdem, setRequisitantes, maquinas } = useData();
+      const resultado = cleanupRequisitantesData(users, ordens, updateOrdem, setRequisitantes);
+      const integridade = verificarIntegridadeDados(users, ordens, maquinas);
+      
+      toast({
+        title: "Limpeza de dados concluída",
+        description: `${resultado.ordensAtualizadas} ordens verificadas. ${integridade.ordensComRequisitanteValido} ordens com requisitantes válidos.`,
+      });
     }
   };
 
@@ -412,6 +426,33 @@ export default function Configuracoes() {
               </div>
             </DialogContent>
           </Dialog>
+        </CardContent>
+      </Card>
+
+      {/* Manutenção de Dados */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Manutenção de Dados
+          </CardTitle>
+          <CardDescription>
+            Ferramentas para otimização e limpeza de dados do sistema
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-medium mb-2">Padronização de Requisitantes</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                Remove dados antigos de requisitantes e vincula ordens de serviço apenas aos usuários cadastrados no sistema.
+              </p>
+              <Button variant="outline" onClick={handleCleanupData}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Limpar Dados Antigos
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

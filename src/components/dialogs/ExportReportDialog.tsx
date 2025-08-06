@@ -25,10 +25,8 @@ export function ExportReportDialog({ open, onOpenChange }: ExportReportDialogPro
   const [selectedTechnician, setSelectedTechnician] = useState('');
   const [dateField, setDateField] = useState<'dataAbertura' | 'dataInicio' | 'dataConclusao'>('dataAbertura');
 
-  const setores = [
-    'Produção', 'Qualidade', 'Logística', 'Manutenção', 'Administração',
-    'Recursos Humanos', 'Engenharia', 'Segurança do Trabalho'
-  ];
+  // Obter setores únicos das localizações dos equipamentos
+  const setores = [...new Set(maquinas.map(m => m.localizacao).filter(Boolean))].sort();
 
   const clearFilters = () => {
     setDateFrom('');
@@ -70,9 +68,12 @@ export function ExportReportDialog({ open, onOpenChange }: ExportReportDialogPro
       filteredOrdens = filteredOrdens.filter(ordem => ordem.maquinaId === selectedEquipment);
     }
 
-    // Filtro por setor
+    // Filtro por setor (setor do equipamento)
     if (selectedSetor && selectedSetor !== 'todos') {
-      filteredOrdens = filteredOrdens.filter(ordem => ordem.setorNome === selectedSetor);
+      filteredOrdens = filteredOrdens.filter(ordem => {
+        const maquina = maquinas.find(m => m.id === ordem.maquinaId);
+        return maquina?.localizacao === selectedSetor;
+      });
     }
 
     // Filtro por técnico
@@ -101,24 +102,30 @@ export function ExportReportDialog({ open, onOpenChange }: ExportReportDialogPro
     ];
 
     // Dados do CSV
-    const csvData = filteredOrdens.map(ordem => [
-      ordem.numeroRastreio,
-      ordem.titulo,
-      ordem.descricao,
-      ordem.maquinaNome,
-      ordem.setorNome,
-      ordem.tecnicoResponsavelNome,
-      ordem.requisitanteNome,
-      ordem.prioridade,
-      ordem.status,
-      format(new Date(ordem.dataAbertura), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-      ordem.dataInicio ? format(new Date(ordem.dataInicio), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
-      ordem.dataConclusao ? format(new Date(ordem.dataConclusao), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
-      ordem.tempoParadaTotal || '',
-      ordem.tempoReparoEfetivo || '',
-      ordem.criadoPor,
-      ordem.observacoes || ''
-    ]);
+    const csvData = filteredOrdens.map(ordem => {
+      // Buscar setor do equipamento
+      const maquina = maquinas.find(m => m.id === ordem.maquinaId);
+      const setorEquipamento = maquina?.localizacao || 'N/A';
+      
+      return [
+        ordem.numeroRastreio,
+        ordem.titulo,
+        ordem.descricao,
+        ordem.maquinaNome,
+        setorEquipamento, // Usar setor do equipamento em vez do requisitante
+        ordem.tecnicoResponsavelNome,
+        ordem.requisitanteNome,
+        ordem.prioridade,
+        ordem.status,
+        format(new Date(ordem.dataAbertura), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+        ordem.dataInicio ? format(new Date(ordem.dataInicio), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+        ordem.dataConclusao ? format(new Date(ordem.dataConclusao), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+        ordem.tempoParadaTotal || '',
+        ordem.tempoReparoEfetivo || '',
+        ordem.criadoPor,
+        ordem.observacoes || ''
+      ];
+    });
 
     // Gerar arquivo CSV
     const csvContent = [headers, ...csvData]
