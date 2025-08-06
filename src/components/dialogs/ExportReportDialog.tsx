@@ -33,9 +33,9 @@ export function ExportReportDialog({ open, onOpenChange }: ExportReportDialogPro
   const clearFilters = () => {
     setDateFrom('');
     setDateTo('');
-    setSelectedEquipment('');
-    setSelectedSetor('');
-    setSelectedTechnician('');
+    setSelectedEquipment('todos');
+    setSelectedSetor('todos');
+    setSelectedTechnician('todos');
     setDateField('dataAbertura');
   };
 
@@ -66,17 +66,17 @@ export function ExportReportDialog({ open, onOpenChange }: ExportReportDialogPro
     }
 
     // Filtro por equipamento
-    if (selectedEquipment) {
+    if (selectedEquipment && selectedEquipment !== 'todos') {
       filteredOrdens = filteredOrdens.filter(ordem => ordem.maquinaId === selectedEquipment);
     }
 
     // Filtro por setor
-    if (selectedSetor) {
+    if (selectedSetor && selectedSetor !== 'todos') {
       filteredOrdens = filteredOrdens.filter(ordem => ordem.setorNome === selectedSetor);
     }
 
     // Filtro por técnico
-    if (selectedTechnician) {
+    if (selectedTechnician && selectedTechnician !== 'todos') {
       filteredOrdens = filteredOrdens.filter(ordem => ordem.tecnicoResponsavelId === selectedTechnician);
     }
 
@@ -199,7 +199,7 @@ export function ExportReportDialog({ open, onOpenChange }: ExportReportDialogPro
                 <SelectValue placeholder="Todos os equipamentos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os equipamentos</SelectItem>
+                <SelectItem value="todos">Todos os equipamentos</SelectItem>
                 {maquinas.map(maquina => (
                   <SelectItem key={maquina.id} value={maquina.id}>
                     {maquina.nome} - {maquina.modelo}
@@ -217,7 +217,7 @@ export function ExportReportDialog({ open, onOpenChange }: ExportReportDialogPro
                 <SelectValue placeholder="Todos os setores" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os setores</SelectItem>
+                <SelectItem value="todos">Todos os setores</SelectItem>
                 {setores.map(setor => (
                   <SelectItem key={setor} value={setor}>
                     {setor}
@@ -235,7 +235,7 @@ export function ExportReportDialog({ open, onOpenChange }: ExportReportDialogPro
                 <SelectValue placeholder="Todos os técnicos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os técnicos</SelectItem>
+                <SelectItem value="todos">Todos os técnicos</SelectItem>
                 {tecnicos.map(tecnico => (
                   <SelectItem key={tecnico.id} value={tecnico.id}>
                     {tecnico.nome}
