@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { OrdemServicoDialog } from '@/components/dialogs/OrdemServicoDialog';
+import { ExportReportDialog } from '@/components/dialogs/ExportReportDialog';
+import { exportOrderToPDF } from '@/utils/exportUtils';
 
 export interface OrdemServico {
   id: string;
@@ -49,6 +51,7 @@ export default function OrdensServico() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOrdem, setEditingOrdem] = useState<OrdemServico | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
 
   const handleDelete = (ordem: OrdemServico) => {
@@ -79,6 +82,22 @@ export default function OrdensServico() {
   const handleCreate = () => {
     setEditingOrdem(null);
     setDialogOpen(true);
+  };
+
+  const handleExportPDF = (ordem: OrdemServico) => {
+    try {
+      exportOrderToPDF(ordem);
+      toast({
+        title: "PDF exportado",
+        description: `Ordem ${ordem.numeroRastreio} foi exportada com sucesso`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro na exportação",
+        description: "Não foi possível exportar a ordem para PDF",
+        variant: "destructive",
+      });
+    }
   };
 
 
@@ -112,12 +131,18 @@ export default function OrdensServico() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold tracking-tight">Ordens de Serviço</h2>
-        {canCreate && (
-          <Button onClick={handleCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Ordem
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setExportDialogOpen(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar Relatório
           </Button>
-        )}
+          {canCreate && (
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Ordem
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Busca */}
@@ -137,6 +162,12 @@ export default function OrdensServico() {
         onOpenChange={setDialogOpen}
         ordem={editingOrdem || undefined}
         mode={editingOrdem ? "edit" : "create"}
+      />
+
+      {/* Dialog de Exportação de Relatório */}
+      <ExportReportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
       />
 
       {/* Lista de Ordens */}
@@ -201,28 +232,39 @@ export default function OrdensServico() {
                      </div>
                    )}
                  </div>
-                
-                  {canEdit && (
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(ordem)}
-                        title="Editar ordem"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(ordem)}
-                        className="text-red-600 hover:text-red-700 hover:border-red-300"
-                        title="Excluir ordem"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
+                 
+                   <div className="flex space-x-2">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => handleExportPDF(ordem)}
+                       title="Exportar PDF"
+                       className="text-blue-600 hover:text-blue-700 hover:border-blue-300"
+                     >
+                       <FileText className="h-4 w-4" />
+                     </Button>
+                     {canEdit && (
+                       <>
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handleEdit(ordem)}
+                           title="Editar ordem"
+                         >
+                           <Edit className="h-4 w-4" />
+                         </Button>
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handleDelete(ordem)}
+                           className="text-red-600 hover:text-red-700 hover:border-red-300"
+                           title="Excluir ordem"
+                         >
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
+                       </>
+                     )}
+                   </div>
               </div>
             </CardContent>
           </Card>
