@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useData, setoresFabris, setoresRequisitantes } from "@/contexts/DataContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { OrdemServico } from "@/pages/OrdensServico";
 import { TempoParada } from "@/pages/TemposParada";
 import { differenceInMinutes } from "date-fns";
@@ -31,7 +32,8 @@ interface OrdemServicoDialogProps {
 }
 
 export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemServicoDialogProps) {
-  const { maquinas, tecnicos, requisitantes, setores, addOrdem, updateOrdem, addTempoParada, updateTempoParada, temposParada } = useData();
+  const { maquinas, tecnicos, addOrdem, updateOrdem, addTempoParada, updateTempoParada, temposParada } = useData();
+  const { users } = useAuth();
   
   const [formData, setFormData] = useState({
     numeroRastreio: "",
@@ -147,7 +149,7 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
     e.preventDefault();
     
     const maquina = maquinas.find(m => m.id === formData.maquinaId);
-    const requisitante = requisitantes.find(r => r.id === formData.requisitanteId);
+    const requisitante = users.find(u => u.id === formData.requisitanteId);
     const tecnico = tecnicos.find(t => t.id === formData.tecnicoResponsavelId);
     const { tempoParadaTotal, tempoReparoEfetivo } = calcularTempos();
 
@@ -159,7 +161,7 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
       maquinaId: formData.maquinaId,
       maquinaNome: maquina?.nome || "",
       requisitanteId: formData.requisitanteId,
-      requisitanteNome: requisitante?.nome || "",
+      requisitanteNome: requisitante?.name || "",
       setorId: maquina?.localizacao || "",
       setorNome: maquina?.localizacao || "",
       prioridade: formData.prioridade,
@@ -314,9 +316,9 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
                   <SelectValue placeholder="Selecione um requisitante" />
                 </SelectTrigger>
                 <SelectContent>
-                  {requisitantes.map((req) => (
-                    <SelectItem key={req.id} value={req.id}>
-                      {req.nome}
+                  {users.filter(user => user.active).map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} - {user.role}
                     </SelectItem>
                   ))}
                 </SelectContent>
