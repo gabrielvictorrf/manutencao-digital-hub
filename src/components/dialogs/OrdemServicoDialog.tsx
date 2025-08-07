@@ -42,7 +42,6 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
     descricao: "",
     tecnicoResponsavelId: "",
     requisitanteId: "",
-    setorId: "",
     dataAbertura: new Date().toISOString().split('T')[0],
     dataInicio: "",
     dataConclusao: "",
@@ -65,7 +64,6 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
         descricao: ordem.descricao,
         tecnicoResponsavelId: ordem.tecnicoResponsavelId || "",
         requisitanteId: ordem.requisitanteId || "",
-        setorId: ordem.setorId || "",
         dataAbertura: ordem.dataAbertura.split('T')[0],
         dataInicio: ordem.dataInicio?.split('T')[0] || "",
         dataConclusao: ordem.dataConclusao?.split('T')[0] || "",
@@ -85,7 +83,6 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
         descricao: "",
         tecnicoResponsavelId: "",
         requisitanteId: "",
-        setorId: "",
         dataAbertura: new Date().toISOString().split('T')[0],
         dataInicio: "",
         dataConclusao: "",
@@ -163,8 +160,8 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
       maquinaNome: maquina?.nome || "",
       requisitanteId: formData.requisitanteId,
       requisitanteNome: requisitante?.nome || "",
-      setorId: formData.setorId,
-      setorNome: requisitante?.setor || "",
+      setorId: maquina?.localizacao || "",
+      setorNome: maquina?.localizacao || "",
       prioridade: formData.prioridade,
       status: formData.status,
       tecnicoResponsavelId: formData.tecnicoResponsavelId,
@@ -291,7 +288,7 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="tecnico">Profissional</Label>
               <Select value={formData.tecnicoResponsavelId} onValueChange={(value) => setFormData({ ...formData, tecnicoResponsavelId: value })}>
@@ -310,7 +307,9 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
 
             <div className="space-y-2">
               <Label htmlFor="requisitante">Requisitante</Label>
-              <Select value={formData.requisitanteId} onValueChange={(value) => setFormData({ ...formData, requisitanteId: value })}>
+              <Select value={formData.requisitanteId} onValueChange={(value) => {
+                setFormData({ ...formData, requisitanteId: value });
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um requisitante" />
                 </SelectTrigger>
@@ -323,23 +322,20 @@ export function OrdemServicoDialog({ open, onOpenChange, ordem, mode }: OrdemSer
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="setor">Setor *</Label>
-              <Select value={formData.setorId} onValueChange={(value) => setFormData({ ...formData, setorId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o setor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {setoresFabris.map(setor => (
-                    <SelectItem key={setor} value={setor}>
-                      {setor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
+
+          {/* Setor da Máquina (read-only, baseado na máquina selecionada) */}
+          {formData.maquinaId && (
+            <div className="space-y-2">
+              <Label htmlFor="setorMaquina">Setor do Equipamento</Label>
+              <Input
+                id="setorMaquina"
+                value={maquinas.find(m => m.id === formData.maquinaId)?.localizacao || ""}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">

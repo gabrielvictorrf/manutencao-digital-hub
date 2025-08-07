@@ -16,18 +16,6 @@ interface MaquinaDialogProps {
   maquina?: Maquina | null;
 }
 
-const tiposMaquina = [
-  'Torno CNC',
-  'Fresadora',
-  'Furadeira',
-  'Prensa',
-  'Compressor',
-  'Esteira',
-  'Bomba',
-  'Motor',
-  'Gerador',
-  'Outro'
-];
 
 export default function MaquinaDialog({ isOpen, onClose, maquina }: MaquinaDialogProps) {
   const { user } = useAuth();
@@ -183,11 +171,6 @@ export default function MaquinaDialog({ isOpen, onClose, maquina }: MaquinaDialo
                   {tiposEquipamento.map(tipo => (
                     <SelectItem key={tipo.id} value={tipo.nome}>
                       {tipo.nome}
-                    </SelectItem>
-                  ))}
-                  {tiposMaquina.map(tipo => (
-                    <SelectItem key={tipo} value={tipo}>
-                      {tipo}
                     </SelectItem>
                   ))}
                 </SelectContent>
