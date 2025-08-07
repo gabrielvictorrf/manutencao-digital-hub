@@ -47,7 +47,7 @@ export interface OrdemServico {
 export default function OrdensServico() {
   const { canEdit, canCreate } = useAuth();
   const { toast } = useToast();
-  const { ordens, deleteOrdem } = useData();
+  const { ordens, maquinas, deleteOrdem } = useData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOrdem, setEditingOrdem] = useState<OrdemServico | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -203,7 +203,7 @@ export default function OrdensServico() {
                       <span className="font-medium">Requisitante:</span> {ordem.requisitanteNome}
                     </div>
                     <div>
-                      <span className="font-medium">Setor:</span> {ordem.setorNome}
+                      <span className="font-medium">Setor:</span> {maquinas.find(m => m.id === ordem.maquinaId)?.localizacao || 'N/A'}
                     </div>
                     <div>
                       <span className="font-medium">Abertura:</span> {format(new Date(ordem.dataAbertura), "dd/MM/yyyy HH:mm", { locale: ptBR })}
