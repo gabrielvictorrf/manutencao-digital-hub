@@ -35,18 +35,6 @@ export interface Maquina {
   criadoPor: string;
 }
 
-const tiposMaquina = [
-  'Torno CNC',
-  'Fresadora',
-  'Furadeira',
-  'Prensa',
-  'Compressor',
-  'Esteira',
-  'Bomba',
-  'Motor',
-  'Gerador',
-  'Outro'
-];
 
 export default function Maquinas() {
   const { canEdit, user } = useAuth();

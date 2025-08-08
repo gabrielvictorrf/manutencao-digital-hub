@@ -33,55 +33,74 @@ export default function Relatorios() {
   const [maquinaSelecionada, setMaquinaSelecionada] = useState("todas");
   const { ordens, maquinas, temposParada } = useData();
 
-  // Calcular métricas baseadas nos dados reais
+  // Helpers de período
+  const days = parseInt(periodoSelecionado || '30', 10);
+  const now = new Date();
+  const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+  // Calcular métricas baseadas nos dados reais e no período selecionado
   const calcularMetricasMaquina = () => {
+    const round1 = (n: number) => Math.round(n * 10) / 10;
+
     return maquinas.map(maquina => {
-      const ordensDoMaquina = ordens.filter(ordem => ordem.maquinaId === maquina.id);
-      const paradasDoMaquina = temposParada.filter(parada => parada.maquinaId === maquina.id);
-      
-      const ordensFinalizadas = ordensDoMaquina.filter(ordem => ordem.status === "concluida");
-      const tempoTotalReparo = ordensFinalizadas.reduce((acc, ordem) => {
-        if (ordem.dataInicio && ordem.dataConclusao) {
-          const inicio = new Date(ordem.dataInicio);
-          const fim = new Date(ordem.dataConclusao);
-          return acc + (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60); // horas
-        }
-        return acc;
+      const ordensDoMaquina = ordens.filter(ordem =>
+        ordem.maquinaId === maquina.id && new Date(ordem.dataAbertura) >= periodStart
+      );
+      const paradasDoMaquina = temposParada.filter(parada =>
+        parada.maquinaId === maquina.id && new Date(parada.dataInicio) >= periodStart
+      );
+
+      const ordensFinalizadas = ordensDoMaquina.filter(
+        ordem => ordem.status === "concluida" && ordem.dataInicio && ordem.dataConclusao
+      );
+
+      // Tempo total de reparo (em horas)
+      const tempoTotalReparoHoras = ordensFinalizadas.reduce((acc, ordem) => {
+        const inicio = new Date(ordem.dataInicio!);
+        const fim = new Date(ordem.dataConclusao!);
+        return acc + (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60);
       }, 0);
-      
-      const tempoTotalParada = paradasDoMaquina.reduce((acc, parada) => acc + parada.duracao, 0);
+
+      // Tempo total de parada (converter minutos -> horas)
+      const tempoTotalParadaHoras = paradasDoMaquina.reduce((acc, parada) => acc + (parada.duracao || 0) / 60, 0);
       const totalParadas = paradasDoMaquina.length;
-      
-      // Calcular MTTR (Mean Time To Repair)
-      const mttr = ordensFinalizadas.length > 0 ? tempoTotalReparo / ordensFinalizadas.length : 0;
-      
-      // Calcular MTBF (Mean Time Between Failures) - assumindo 720h/mês
-      const tempoOperacional = 720 - tempoTotalParada;
-      const mtbf = totalParadas > 0 ? tempoOperacional / totalParadas : 720;
-      
-      // Calcular disponibilidade
-      const disponibilidade = (tempoOperacional / 720) * 100;
-      
-      // Determinar criticidade baseada na disponibilidade
+
+      // MTTR (horas)
+      const mttr = ordensFinalizadas.length > 0 ? tempoTotalReparoHoras / ordensFinalizadas.length : 0;
+
+      // Horas no período selecionado
+      const horasNoPeriodo = days * 24;
+      const tempoOperacional = Math.max(horasNoPeriodo - tempoTotalParadaHoras, 0);
+
+      // MTBF (horas)
+      const mtbf = totalParadas > 0 ? tempoOperacional / totalParadas : (tempoOperacional || horasNoPeriodo);
+
+      // Disponibilidade (%)
+      const disponibilidade = horasNoPeriodo > 0 ? (tempoOperacional / horasNoPeriodo) * 100 : 100;
+
+      // Criticidade baseada na disponibilidade
       let criticidade: "Baixa" | "Média" | "Alta" = "Baixa";
       if (disponibilidade < 85) criticidade = "Alta";
       else if (disponibilidade < 95) criticidade = "Média";
-      
+
       return {
         id: maquina.id,
         nome: maquina.nome,
-        mttr: Math.round(mttr * 10) / 10,
+        mttr: round1(mttr),
         mtbf: Math.round(mtbf),
-        disponibilidade: Math.round(disponibilidade * 10) / 10,
+        disponibilidade: round1(disponibilidade),
         totalParadas,
-        tempoTotalParada: Math.round(tempoTotalParada * 10) / 10,
+        tempoTotalParada: round1(tempoTotalParadaHoras),
         ordensManutencao: ordensDoMaquina.length,
         criticidade
-      };
+      } as MaquinaMetricas;
     });
   };
 
   const maquinasMetricas = calcularMetricasMaquina();
+  const maquinasFiltradas = maquinaSelecionada === "todas"
+    ? maquinasMetricas
+    : maquinasMetricas.filter(m => m.id === maquinaSelecionada);
 
   const getCriticidadeBadge = (criticidade: string) => {
     switch (criticidade) {
@@ -103,9 +122,10 @@ export default function Relatorios() {
   };
 
   const calcularMedias = () => {
-    const mttrMedio = maquinasMetricas.reduce((acc, m) => acc + m.mttr, 0) / maquinasMetricas.length;
-    const mtbfMedio = maquinasMetricas.reduce((acc, m) => acc + m.mtbf, 0) / maquinasMetricas.length;
-    const disponibilidadeMedia = maquinasMetricas.reduce((acc, m) => acc + m.disponibilidade, 0) / maquinasMetricas.length;
+    const base = maquinasFiltradas.length > 0 ? maquinasFiltradas : maquinasMetricas;
+    const mttrMedio = base.reduce((acc, m) => acc + m.mttr, 0) / (base.length || 1);
+    const mtbfMedio = base.reduce((acc, m) => acc + m.mtbf, 0) / (base.length || 1);
+    const disponibilidadeMedia = base.reduce((acc, m) => acc + m.disponibilidade, 0) / (base.length || 1);
     
     return {
       mttrMedio: Math.round(mttrMedio * 10) / 10,
@@ -266,7 +286,7 @@ export default function Relatorios() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {maquinasMetricas.map((maquina) => (
+            {maquinasFiltradas.map((maquina) => (
               <div key={maquina.id} className="border rounded-lg p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
