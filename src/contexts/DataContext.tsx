@@ -5,6 +5,7 @@ import {
   loadTemposParada, saveTemposParada,
   loadRequisitantes, saveRequisitantes,
   loadSetores, saveSetores,
+  loadTecnicos, saveTecnicos,
   Requisitante, Setor
 } from '@/lib/storage';
 import { OrdemServico } from '@/pages/OrdensServico';
@@ -221,42 +222,42 @@ const especialidadesIniciais: Especialidade[] = [
 // Dados iniciais dos técnicos
 const tecnicosIniciais: Tecnico[] = [
   {
-    id: "1",
-    nome: "João Silva",
+    id: "t1",
+    nome: "Clebisson de Almeida",
+    especialidade: "Elétrica",
+    turno: "Primeiro Turno",
+    valorHora: 30.00,
+    horasTrabalhadasMes: 0,
+    ordensCompletas: 0,
+    status: "Ativo"
+  },
+  {
+    id: "t2",
+    nome: "Marcos José",
+    especialidade: "Elétrica",
+    turno: "Primeiro Turno",
+    valorHora: 30.00,
+    horasTrabalhadasMes: 0,
+    ordensCompletas: 0,
+    status: "Ativo"
+  },
+  {
+    id: "t3",
+    nome: "Luciano Santos",
     especialidade: "Mecânica",
     turno: "Primeiro Turno",
     valorHora: 25.00,
-    horasTrabalhadasMes: 168,
+    horasTrabalhadasMes: 0,
     ordensCompletas: 0,
     status: "Ativo"
   },
   {
-    id: "2",
-    nome: "Maria Santos",
-    especialidade: "Elétrica",
-    turno: "Segundo Turno",
-    valorHora: 30.00,
-    horasTrabalhadasMes: 160,
-    ordensCompletas: 0,
-    status: "Ativo"
-  },
-  {
-    id: "3",
-    nome: "Carlos Lima",
-    especialidade: "Hidráulica",
-    turno: "Primeiro Turno",
-    valorHora: 22.00,
-    horasTrabalhadasMes: 155,
-    ordensCompletas: 0,
-    status: "Férias"
-  },
-  {
-    id: "4",
-    nome: "Ana Costa",
+    id: "t4",
+    nome: "Helton Seixas",
     especialidade: "Soldagem",
-    turno: "Terceiro Turno",
+    turno: "Primeiro Turno",
     valorHora: 35.00,
-    horasTrabalhadasMes: 172,
+    horasTrabalhadasMes: 0,
     ordensCompletas: 0,
     status: "Ativo"
   }
@@ -278,40 +279,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
     refreshData();
   }, []);
 
-  const refreshData = () => {
-    const ordensCarregadas = loadOrdens();
-    const maquinasCarregadas = loadMaquinas();
-    const temposCarregados = loadTemposParada();
-    const requisitantesCarregados = loadRequisitantes();
-    const setoresCarregados = loadSetores();
-    const tiposCarregados = JSON.parse(localStorage.getItem('tiposEquipamento') || '[]');
-    const turnosCarregados = JSON.parse(localStorage.getItem('turnos') || '[]');
-    const especialidadesCarregadas = JSON.parse(localStorage.getItem('especialidades') || '[]');
+const refreshData = () => {
+  const ordensCarregadas = loadOrdens();
+  const maquinasCarregadas = loadMaquinas();
+  const temposCarregados = loadTemposParada();
+  const requisitantesCarregados = loadRequisitantes();
+  const setoresCarregados = loadSetores();
+  const tiposCarregados = JSON.parse(localStorage.getItem('tiposEquipamento') || '[]');
+  const turnosCarregados = JSON.parse(localStorage.getItem('turnos') || '[]');
+  const especialidadesCarregadas = JSON.parse(localStorage.getItem('especialidades') || '[]');
+  const tecnicosCarregados = loadTecnicos();
 
-    setOrdensState(ordensCarregadas);
-    setMaquinasState(maquinasCarregadas);
-    setTemposParadaState(temposCarregados);
-    setRequisitantesState(requisitantesCarregados);
-    setSetoresState(setoresCarregados);
-    setTiposEquipamentoState(tiposCarregados);
-    setTurnosState(turnosCarregados.length > 0 ? turnosCarregados : turnosIniciais);
-    setEspecialidadesState(especialidadesCarregadas.length > 0 ? especialidadesCarregadas : especialidadesIniciais);
+  setOrdensState(ordensCarregadas);
+  setMaquinasState(maquinasCarregadas);
+  setTemposParadaState(temposCarregados);
+  setRequisitantesState(requisitantesCarregados);
+  setSetoresState(setoresCarregados);
+  setTiposEquipamentoState(tiposCarregados);
+  setTurnosState(turnosCarregados.length > 0 ? turnosCarregados : turnosIniciais);
+  setEspecialidadesState(especialidadesCarregadas.length > 0 ? especialidadesCarregadas : especialidadesIniciais);
 
-    // Atualizar contador de ordens dos técnicos
-    const ordensCountPorTecnico = ordensCarregadas.reduce((acc: Record<string, number>, ordem) => {
-      if (ordem.tecnicoResponsavelId) {
-        acc[ordem.tecnicoResponsavelId] = (acc[ordem.tecnicoResponsavelId] || 0) + 1;
-      }
-      return acc;
-    }, {});
+  let baseTecnicos = tecnicosCarregados.length > 0 ? tecnicosCarregados : tecnicosIniciais;
 
-    setTecnicosState(prev => 
-      prev.map(tecnico => ({
-        ...tecnico,
-        ordensCompletas: ordensCountPorTecnico[tecnico.id] || 0
-      }))
-    );
-  };
+  // Garantir presença dos técnicos solicitados (sem duplicar por nome)
+  const nomesExistentes = new Set(baseTecnicos.map(t => t.nome));
+  const tecnicosGarantidos = [
+    ...baseTecnicos,
+    ...tecnicosIniciais.filter(t => !nomesExistentes.has(t.nome))
+  ];
+
+  // Atualizar contador de ordens dos técnicos
+  const ordensCountPorTecnico = ordensCarregadas.reduce((acc: Record<string, number>, ordem) => {
+    if (ordem.tecnicoResponsavelId) {
+      acc[ordem.tecnicoResponsavelId] = (acc[ordem.tecnicoResponsavelId] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  const tecnicosAtualizados = tecnicosGarantidos.map(tecnico => ({
+    ...tecnico,
+    ordensCompletas: ordensCountPorTecnico[tecnico.id] || 0
+  }));
+
+  setTecnicosState(tecnicosAtualizados);
+  saveTecnicos(tecnicosAtualizados);
+};
 
   // Funções para Ordens
   const setOrdens = (novasOrdens: OrdemServico[]) => {
@@ -381,6 +393,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Funções para Técnicos
   const setTecnicos = (novosTecnicos: Tecnico[]) => {
     setTecnicosState(novosTecnicos);
+    saveTecnicos(novosTecnicos);
   };
 
   const addTecnico = (tecnico: Tecnico) => {

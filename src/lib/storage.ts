@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   TEMPOS_PARADA: 'tempos_parada',
   REQUISITANTES: 'requisitantes',
   SETORES: 'setores',
+  TECNICOS: 'tecnicos',
 };
 
 // Funções genéricas de armazenamento
@@ -99,6 +100,27 @@ export interface Setor {
   criadoEm: string;
   criadoPor: string;
 }
+
+// Interface para técnicos (gestão de pessoal)
+export interface Tecnico {
+  id: string;
+  nome: string;
+  especialidade: string;
+  turno: string;
+  valorHora: number;
+  horasTrabalhadasMes: number;
+  ordensCompletas: number;
+  status: 'Ativo' | 'Inativo' | 'Férias';
+}
+
+// Funções para técnicos
+export const saveTecnicos = (tecnicos: Tecnico[]): void => {
+  saveToStorage(STORAGE_KEYS.TECNICOS, tecnicos);
+};
+
+export const loadTecnicos = (): Tecnico[] => {
+  return loadFromStorage<Tecnico>(STORAGE_KEYS.TECNICOS);
+};
 
 // Funções para requisitantes
 export const saveRequisitantes = (requisitantes: Requisitante[]): void => {
